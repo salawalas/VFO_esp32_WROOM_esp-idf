@@ -73,9 +73,8 @@ typedef struct {
 
 static btn_state_t s_btn[BTN_COUNT];
 
-/* Stan menu BAND */
-static bool     s_band_menu_open = false;
-static int      s_band_sel       = 0;   /* aktualnie zaznaczony indeks */
+/* Zapisana wartosc xtal_cal przed wejsciem w tryb kalibracji (do cancel) */
+static int32_t s_xtal_cal_saved = 0;
 
 /*---------------------------------------------------------------------------
  *  Prototypy wewnetrzne
@@ -83,7 +82,6 @@ static int      s_band_sel       = 0;   /* aktualnie zaznaczony indeks */
 static void handle_short(int idx);
 static void handle_long(int idx);
 static void check_lock_combo(void);
-static void band_menu_draw(void);
 
 /*===========================================================================
  *  buttons_init
@@ -117,19 +115,6 @@ esp_err_t buttons_init(void)
              "OK — STEP_DN=%d STEP_UP=%d MEM=%d SAVE=%d BAND=%d",
              BTN_STEP_DN, BTN_STEP_UP, BTN_MEM, BTN_SAVE, BTN_BAND);
     return ESP_OK;
-}
-
-/*===========================================================================
- *  band_menu_draw — odswiezenie wyswietlacza menu BAND
- *  (ustawia flagi — display_task wykona faktyczny rendering)
- *===========================================================================*/
-static void band_menu_draw(void)
-{
-    VFO_LOCK();
-    g_vfo.disp_mode   = DISP_MODE_BAND_MENU;
-    g_vfo.band_sel    = s_band_sel;
-    g_vfo.f_disp_changed = true;
-    VFO_UNLOCK();
 }
 
 /*===========================================================================
@@ -170,7 +155,18 @@ static void handle_short(int idx)
         break;
 
     case IDX_MEM:
-        if (mode == DISP_MODE_SAVE_PROMPT) {
+        if (mode == DISP_MODE_XTAL_CAL) {
+            /* Zapisz kalibracje do NVS i wyjdz */
+            VFO_LOCK();
+            int32_t cal = g_vfo.xtal_cal;
+            g_vfo.disp_mode      = DISP_MODE_VFO;
+            g_vfo.f_freq_changed = true;
+            g_vfo.f_disp_changed = true;
+            VFO_UNLOCK();
+            nvs_save_xtal_cal(cal);
+            ESP_LOGI(TAG_BTN, "XTAL_CAL zapisano: %ld Hz", (long)cal);
+
+        } else if (mode == DISP_MODE_SAVE_PROMPT) {
             /* YES w dialogu zapisu */
             VFO_LOCK();
             int    midx = g_vfo.mem_idx;
@@ -187,17 +183,17 @@ static void handle_short(int idx)
 
         } else if (mode == DISP_MODE_BAND_MENU) {
             /* Wybor pasma w menu */
-            uint32_t bfrq = VFO_BANDS[s_band_sel].freq_hz;
-            s_band_menu_open = false;
             VFO_LOCK();
-            g_vfo.freq        = bfrq;
-            g_vfo.mem_idx     = 0;
-            g_vfo.disp_mode   = DISP_MODE_VFO;
+            int      bsel = g_vfo.band_sel;
+            uint32_t bfrq = VFO_BANDS[bsel].freq_hz;
+            g_vfo.freq           = bfrq;
+            g_vfo.mem_idx        = 0;
+            g_vfo.disp_mode      = DISP_MODE_VFO;
             g_vfo.f_freq_changed = true;
             g_vfo.f_disp_changed = true;
             VFO_UNLOCK();
             ESP_LOGI(TAG_BTN, "BAND -> %s (%lu Hz)",
-                     VFO_BANDS[s_band_sel].label, (unsigned long)bfrq);
+                     VFO_BANDS[bsel].label, (unsigned long)bfrq);
 
         } else {
             /* Przewijanie bankow pamieci */
@@ -218,25 +214,42 @@ static void handle_short(int idx)
 
         } else if (mode == DISP_MODE_BAND_MENU) {
             /* Zamknij menu BAND bez wyboru */
-            s_band_menu_open = false;
             VFO_LOCK();
             g_vfo.disp_mode      = DISP_MODE_VFO;
             g_vfo.f_disp_changed = true;
             VFO_UNLOCK();
+
+        } else if (mode == DISP_MODE_XTAL_CAL) {
+            /* Anuluj kalibracje — przywroc poprzednia wartosc */
+            VFO_LOCK();
+            g_vfo.xtal_cal       = s_xtal_cal_saved;
+            g_vfo.disp_mode      = DISP_MODE_VFO;
+            g_vfo.f_freq_changed = true;
+            g_vfo.f_disp_changed = true;
+            VFO_UNLOCK();
+            ESP_LOGI(TAG_BTN, "XTAL_CAL anulowana, przywrocono %ld Hz",
+                     (long)s_xtal_cal_saved);
         }
         break;
 
     case IDX_BAND:
-        if (mode == DISP_MODE_BAND_MENU) {
-            /* Nastepna pozycja w menu */
-            s_band_sel = (s_band_sel + 1) % (int)BAND_COUNT;
-            band_menu_draw();
+        if (mode == DISP_MODE_XTAL_CAL) {
+            /* Drugi raz BTN_CAL (GPIO33) — wyjdz bez zapisu */
+            VFO_LOCK();
+            g_vfo.xtal_cal       = s_xtal_cal_saved;
+            g_vfo.disp_mode      = DISP_MODE_VFO;
+            g_vfo.f_freq_changed = true;
+            g_vfo.f_disp_changed = true;
+            VFO_UNLOCK();
         } else {
-            /* Otworz menu */
-            s_band_menu_open = true;
-            s_band_sel       = 0;
-            band_menu_draw();
-            ESP_LOGI(TAG_BTN, "BAND menu otwarty");
+            /* Wejdz w tryb kalibracji kwarcu */
+            VFO_LOCK();
+            s_xtal_cal_saved     = g_vfo.xtal_cal;
+            g_vfo.disp_mode      = DISP_MODE_XTAL_CAL;
+            g_vfo.f_disp_changed = true;
+            VFO_UNLOCK();
+            ESP_LOGI(TAG_BTN, "XTAL_CAL tryb — biezaca korekta: %ld Hz",
+                     (long)s_xtal_cal_saved);
         }
         break;
     }

@@ -26,3 +26,6 @@ void ui_rounded_box(int x0, int y0, int x1, int y1,
 
 /* Narysuj menu wyboru pasma amatorskiego */
 void ui_draw_band_menu(int selected_idx);
+
+/* Narysuj ekran kalibracji kwarcu XTAL */
+void ui_draw_xtal_cal(int32_t cal);

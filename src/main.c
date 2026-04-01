@@ -205,67 +205,77 @@ static void display_task(void *arg)
         bool        f_disp   = g_vfo.f_disp_changed;
         bool        f_freq   = g_vfo.f_freq_changed;
         uint32_t    freq     = g_vfo.freq;
-        uint32_t    car_freq = g_vfo.car_freq;
         bool        car_on   = g_vfo.car_on;
         int         step_idx = g_vfo.step_idx;
         int         mem_idx  = g_vfo.mem_idx;
         bool        locked   = g_vfo.locked;
         disp_mode_t mode     = g_vfo.disp_mode;
         int         band_sel = g_vfo.band_sel;
+        int32_t     xtal_cal = g_vfo.xtal_cal;
         if (f_disp) g_vfo.f_disp_changed = false;
         if (f_freq) g_vfo.f_freq_changed  = false;
         VFO_UNLOCK();
 
         if (f_freq) {
+            si5351_set_xtal_cal(xtal_cal);   /* aktualizuj kalibracje przed synteza */
             si5351_set_freq(freq);
             si5351_set_car_freq(freq, car_on);
         }
 
         if (f_disp) {
-            boxfill(0, 0, NX - 1, NY - 1, 0x000000);
-            dial_draw(freq);
-            draw_box(7, 100, 153, 126, 0xa0a0a0);
-            draw_box(6,  99, 154, 127, 0xa0a0a0);
-
-            /* Krok */
-            const char *step_labels[] = {
-                "STEPS 10 Hz", "STEPS 100 Hz", "STEPS 1 kHz",
-                "STEPS 10 kHz", "STEPS 100 kHz", "STEPS 1 MHz"
-            };
-            if (step_idx >= 0 && step_idx < FREQ_STEP_COUNT) {
-                disp_str8(step_labels[step_idx], 50, 85, 0xffd080);
-            }
-
-            /* Bank pamięci */
-            if (mem_idx == 0) {
-                disp_str8("VFO", 5, 85, 0x00ffff);
-            } else {
-                snprintf(str, sizeof(str), "M%d", mem_idx);
-                disp_str8(str, 5, 85, 0xffd080);
-            }
-
-            /* Częstotliwość cyfrowa — ukryta gdy LOCK aktywny */
-            if (!locked) {
-                snprintf(str, sizeof(str), "%3lu.%03lu,%02lu",
-                    (unsigned long)(freq / 1000000UL),
-                    (unsigned long)((freq / 1000UL) % 1000UL),
-                    (unsigned long)((freq / 10UL)   % 100UL));
-                disp_str16(str, 17, 105, 0xffd080);
-                disp_str12("MHz", 120, 106, 0xffd080);
-            }
-
-            /* LOCK — napis na dole ekranu (zajmuje y=105..127) */
-            ui_draw_lock_icon(locked);
-
-            /* Overlaye trybow */
-            if (mode == DISP_MODE_SAVE_OK) {
-                ui_draw_saved_confirm(mem_idx, freq);
-            } else if (mode == DISP_MODE_LOAD_OK) {
-                ui_draw_loaded_confirm(mem_idx, freq);
-            } else if (mode == DISP_MODE_SAVE_PROMPT) {
-                ui_draw_save_prompt(mem_idx);
-            } else if (mode == DISP_MODE_BAND_MENU) {
+            if (mode == DISP_MODE_BAND_MENU) {
+                /* Pelnoekranowe menu — pomija dial_draw */
                 ui_draw_band_menu(band_sel);
+
+            } else if (mode == DISP_MODE_XTAL_CAL) {
+                /* Pelnoekranowy ekran kalibracji — pomija dial_draw */
+                ui_draw_xtal_cal(xtal_cal);
+
+            } else {
+                /* Normalny widok VFO + overlaye */
+                boxfill(0, 0, NX - 1, NY - 1, 0x000000);
+                dial_draw(freq);
+                draw_box(7, 100, 153, 126, 0xa0a0a0);
+                draw_box(6,  99, 154, 127, 0xa0a0a0);
+
+                /* Krok */
+                const char *step_labels[] = {
+                    "STEPS 10 Hz", "STEPS 100 Hz", "STEPS 1 kHz",
+                    "STEPS 10 kHz", "STEPS 100 kHz", "STEPS 1 MHz"
+                };
+                if (step_idx >= 0 && step_idx < FREQ_STEP_COUNT) {
+                    disp_str8(step_labels[step_idx], 50, 85, 0xffd080);
+                }
+
+                /* Bank pamięci */
+                if (mem_idx == 0) {
+                    disp_str8("VFO", 5, 85, 0x00ffff);
+                } else {
+                    snprintf(str, sizeof(str), "M%d", mem_idx);
+                    disp_str8(str, 5, 85, 0xffd080);
+                }
+
+                /* Częstotliwość cyfrowa — ukryta gdy LOCK aktywny */
+                if (!locked) {
+                    snprintf(str, sizeof(str), "%3lu.%03lu,%02lu",
+                        (unsigned long)(freq / 1000000UL),
+                        (unsigned long)((freq / 1000UL) % 1000UL),
+                        (unsigned long)((freq / 10UL)   % 100UL));
+                    disp_str16(str, 17, 105, 0xffd080);
+                    disp_str12("MHz", 120, 106, 0xffd080);
+                }
+
+                /* LOCK — napis na dole ekranu */
+                ui_draw_lock_icon(locked);
+
+                /* Overlaye na tarczy */
+                if (mode == DISP_MODE_SAVE_OK) {
+                    ui_draw_saved_confirm(mem_idx, freq);
+                } else if (mode == DISP_MODE_LOAD_OK) {
+                    ui_draw_loaded_confirm(mem_idx, freq);
+                } else if (mode == DISP_MODE_SAVE_PROMPT) {
+                    ui_draw_save_prompt(mem_idx);
+                }
             }
 
             display_trans65k();

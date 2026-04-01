@@ -21,6 +21,7 @@
 #include "ui_overlay.h"
 #include "graph.h"
 #include "display.h"
+#include "config.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -253,7 +254,7 @@ void ui_draw_loaded_confirm(int mem_idx, uint32_t freq_hz)
  *    └─────────────────────────┘  y=127
  * ====================================================================== */
 
-/* Dane pasm — musza byc zgodne z buttons.c */
+/* Dane pasm — z config.h (VFO_BANDS) */
 typedef struct { const char *name; } band_label_t;
 static const band_label_t BAND_LABELS[] = {
     { "30m  10.100 MHz" },
@@ -299,4 +300,47 @@ void ui_draw_band_menu(int selected_idx)
     draw_line(0, NY - 14, NX - 1, NY - 14, 0x004400);
     disp_str8("MEM=OK", 4,  NY - 11, 0x00aa00);
     disp_str8("SAVE=X", 88, NY - 11, 0x884400);
+}
+
+/* =========================================================================
+ *  ui_draw_xtal_cal — ekran kalibracji kwarcu
+ *
+ *  Caly ekran (160x128):
+ *    Naglowek:  XTAL CALIBRATION
+ *    Wartosc:   +XXXX Hz  (duza czcionka)
+ *    XTAL eff:  24.999.XXX Hz
+ *    Dolna belka: MEM=SAVE  SAVE=CANCEL
+ * ====================================================================== */
+void ui_draw_xtal_cal(int32_t cal)
+{
+    char str[32];
+
+    /* Tlo */
+    boxfill(0, 0, NX - 1, NY - 1, 0x000a0a);
+
+    /* Naglowek */
+    ui_rounded_box(2, 2, NX - 3, 16, 0x001a1a, 0x00aaaa);
+    disp_str8("XTAL CALIBRATION", 10, 5, 0x00ffff);
+
+    /* Wartosc korekty — duza czcionka */
+    ui_rounded_box(10, 28, NX - 11, 60, 0x001010, 0x00aaaa);
+    snprintf(str, sizeof(str), "%+ld Hz", (long)cal);
+    disp_str16(str, 20, 35, 0x00ffff);
+
+    /* Efektywna czestotliwosc XTAL */
+    uint32_t xtal_eff = (uint32_t)((int32_t)SI5351_XTAL_FREQ + cal);
+    snprintf(str, sizeof(str), "XTAL: %lu Hz", (unsigned long)xtal_eff);
+    disp_str8(str, 14, 68, 0x888888);
+
+    /* Zakres */
+    snprintf(str, sizeof(str), "[%d..+%d Hz]", XTAL_CAL_MIN, XTAL_CAL_MAX);
+    disp_str8(str, 14, 82, 0x555555);
+
+    /* Podpowiedz obslugi */
+    draw_line(0, NY - 28, NX - 1, NY - 28, 0x005555);
+    disp_str8("ENC = zmien wartosc", 6, NY - 24, 0x007777);
+    boxfill(0, NY - 14, NX - 1, NY - 1, 0x001010);
+    draw_line(0, NY - 14, NX - 1, NY - 14, 0x005555);
+    disp_str8("MEM=SAVE", 4,  NY - 11, 0x00aa00);
+    disp_str8("SAVE=X",   88, NY - 11, 0x884400);
 }

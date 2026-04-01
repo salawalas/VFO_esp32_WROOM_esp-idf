@@ -201,25 +201,44 @@ void encoder_task(void *arg)
          * -------------------------------------------------------------- */
         if (detents != 0) {
             VFO_LOCK();
+            disp_mode_t cur_mode = g_vfo.disp_mode;
 
             if (!g_vfo.locked) {
-                /* Kierunek — respektuj f_rev z dial_prm */
-                extern char f_rev;
-                int count = (f_rev == 1) ? -detents : detents;
+                if (cur_mode == DISP_MODE_BAND_MENU) {
+                    /* Menu pasm — przewijaj liste enkoderem */
+                    int sel = g_vfo.band_sel + detents;
+                    if (sel < 0) sel = BAND_COUNT - 1;
+                    if (sel >= BAND_COUNT) sel = 0;
+                    g_vfo.band_sel       = sel;
+                    g_vfo.f_disp_changed = true;
 
-                /* Krok bazowy z tabeli FREQ_STEPS */
-                int32_t base_step = FREQ_STEPS[g_vfo.step_idx];
-                int32_t delta     = (int32_t)count * base_step * s_accel_mul;
+                } else if (cur_mode == DISP_MODE_XTAL_CAL) {
+                    /* Kalibracja kwarcu — krok 1 Hz (x10 przy szybkim obrocie) */
+                    int32_t step    = (abs_det >= 5) ? 10 : 1;
+                    int32_t new_cal = g_vfo.xtal_cal + (int32_t)detents * step;
+                    if (new_cal >  XTAL_CAL_MAX) new_cal =  XTAL_CAL_MAX;
+                    if (new_cal <  XTAL_CAL_MIN) new_cal =  XTAL_CAL_MIN;
+                    g_vfo.xtal_cal       = new_cal;
+                    g_vfo.f_freq_changed = true;
+                    g_vfo.f_disp_changed = true;
 
-                int32_t new_freq = (int32_t)g_vfo.freq + delta;
-                if (new_freq < (int32_t)VFO_FREQ_MIN) new_freq = VFO_FREQ_MIN;
-                if (new_freq > (int32_t)VFO_FREQ_MAX) new_freq = VFO_FREQ_MAX;
+                } else {
+                    /* Normalny tryb VFO */
+                    extern char f_rev;
+                    int count     = (f_rev == 1) ? -detents : detents;
+                    int32_t base_step = FREQ_STEPS[g_vfo.step_idx];
+                    int32_t delta     = (int32_t)count * base_step * s_accel_mul;
 
-                g_vfo.freq           = (uint32_t)new_freq;
-                g_vfo.f_freq_changed = true;
-                g_vfo.f_disp_changed = true;
-                g_vfo.f_autosave_arm = true;
-                g_vfo.mem_idx        = 0;
+                    int32_t new_freq = (int32_t)g_vfo.freq + delta;
+                    if (new_freq < (int32_t)VFO_FREQ_MIN) new_freq = VFO_FREQ_MIN;
+                    if (new_freq > (int32_t)VFO_FREQ_MAX) new_freq = VFO_FREQ_MAX;
+
+                    g_vfo.freq           = (uint32_t)new_freq;
+                    g_vfo.f_freq_changed = true;
+                    g_vfo.f_disp_changed = true;
+                    g_vfo.f_autosave_arm = true;
+                    g_vfo.mem_idx        = 0;
+                }
             }
 
             VFO_UNLOCK();
@@ -260,12 +279,25 @@ void encoder_task(void *arg)
                                * portTICK_PERIOD_MS;
 
             if (held_ms >= ENC_SW_DEBOUNCE_MS && held_ms < ENC_SW_LONG_MS) {
-                /* Krotkie nacisniecie — reset mnoznika do x1 */
-                s_accel_mul = 1;
-                ESP_LOGI(TAG_ENC, "SW krotkie: reset accel -> x1");
-
                 VFO_LOCK();
-                g_vfo.f_disp_changed = true;
+                if (g_vfo.disp_mode == DISP_MODE_BAND_MENU) {
+                    /* Potwierdz wybor pasma */
+                    int      bsel = g_vfo.band_sel;
+                    uint32_t bfrq = VFO_BANDS[bsel].freq_hz;
+                    g_vfo.freq           = bfrq;
+                    g_vfo.mem_idx        = 0;
+                    g_vfo.disp_mode      = DISP_MODE_VFO;
+                    g_vfo.f_freq_changed = true;
+                    g_vfo.f_disp_changed = true;
+                    ESP_LOGI(TAG_ENC, "SW: BAND wybrany -> %s (%lu Hz)",
+                             VFO_BANDS[bsel].label, (unsigned long)bfrq);
+                } else {
+                    /* Otworz menu od pierwszej pozycji */
+                    g_vfo.band_sel  = 0;
+                    g_vfo.disp_mode = DISP_MODE_BAND_MENU;
+                    g_vfo.f_disp_changed = true;
+                    ESP_LOGI(TAG_ENC, "SW: BAND menu otwarty");
+                }
                 VFO_UNLOCK();
             }
         }
