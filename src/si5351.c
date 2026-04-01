@@ -42,6 +42,9 @@ static SemaphoreHandle_t       s_mtx = NULL;
 static uint32_t s_ms_lo  = 0;   /* CLK1 / PLL_B */
 static uint32_t s_ms_car = 0;   /* CLK0+CLK2 / PLL_A */
 
+/*--- kalibracja kwarcu [Hz], domyslnie 0 ---*/
+static int32_t  s_xtal_cal = 0;
+
 /* -------------------------------------------------------------------------
  *  I2C — zapis
  * ---------------------------------------------------------------------- */
@@ -263,7 +266,8 @@ void si5351_set_freq(uint32_t freq_hz)
     /* fVCO dokładne dla integer MS_a */
     uint32_t fvco = freq_hz * MS_a * (1u << R);
     uint32_t pp1, pp2, pp3;
-    calc_pll(fvco, SI5351_XTAL_FREQ, &pp1, &pp2, &pp3);
+    uint32_t xtal = (uint32_t)((int32_t)SI5351_XTAL_FREQ + s_xtal_cal);
+    calc_pll(fvco, xtal, &pp1, &pp2, &pp3);
 
     bool rst = (s_ms_lo != MS_a);
     s_ms_lo = MS_a;
@@ -311,7 +315,8 @@ void si5351_set_car_freq(uint32_t freq_hz, bool enable)
 
     uint32_t fvco = freq_hz * MS_a * (1u << R);
     uint32_t pp1, pp2, pp3;
-    calc_pll(fvco, SI5351_XTAL_FREQ, &pp1, &pp2, &pp3);
+    uint32_t xtal = (uint32_t)((int32_t)SI5351_XTAL_FREQ + s_xtal_cal);
+    calc_pll(fvco, xtal, &pp1, &pp2, &pp3);
 
     bool rst = (s_ms_car != MS_a);
     s_ms_car = MS_a;
@@ -331,6 +336,20 @@ void si5351_set_car_freq(uint32_t freq_hz, bool enable)
 
     ESP_LOGD(TAG_SI5351, "CAR(CLK0+CLK2) %lu Hz | fVCO %lu | MS %lu",
              (unsigned long)freq_hz, (unsigned long)fvco, (unsigned long)MS_a);
+}
+
+/* =========================================================================
+ *  si5351_set_xtal_cal — korekta czestotliwosci kwarcu [Hz]
+ *  Zakres: XTAL_CAL_MIN..XTAL_CAL_MAX (+/-5000 Hz)
+ *  Nowa wartosc bedzie uzyta przy nastepnym wywolaniu set_freq/set_car_freq.
+ * ====================================================================== */
+void si5351_set_xtal_cal(int32_t cal)
+{
+    if (cal > XTAL_CAL_MAX) cal = XTAL_CAL_MAX;
+    if (cal < XTAL_CAL_MIN) cal = XTAL_CAL_MIN;
+    s_xtal_cal = cal;
+    ESP_LOGI(TAG_SI5351, "xtal_cal = %ld Hz (XTAL efektywny: %lu Hz)",
+             (long)cal, (unsigned long)((int32_t)SI5351_XTAL_FREQ + cal));
 }
 
 /* =========================================================================

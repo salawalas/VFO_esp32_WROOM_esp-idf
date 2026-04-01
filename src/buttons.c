@@ -57,25 +57,7 @@ static const int BTN_GPIOS[BTN_COUNT] = {
 #define HOLD_SHORT_MAX_MS    BTN_SHORT_MAX_MS   /* 500ms */
 #define HOLD_LONG_MS         BTN_LONG_MIN_MS    /* 1000ms*/
 
-/*---------------------------------------------------------------------------
- *  Pasma amatorskie dla menu BAND
- *--------------------------------------------------------------------------*/
-typedef struct {
-    const char *name;
-    uint32_t    freq_hz;   /* srodek pasma */
-} band_entry_t;
-
-static const band_entry_t BANDS[] = {
-    { "30m  10.100", 10100000UL },
-    { "20m  14.000", 14000000UL },
-    { "17m  18.068", 18068000UL },
-    { "15m  21.000", 21000000UL },
-    { "12m  24.940", 24940000UL },
-    { "10m  28.000", 28000000UL },
-    { " 6m  50.000", 50000000UL },
-    { " FM  100.00", 100000000UL},
-};
-#define BAND_COUNT  (sizeof(BANDS) / sizeof(BANDS[0]))
+/* Pasma amatorskie — z config.h (VFO_BANDS[BAND_COUNT]) */
 
 /*---------------------------------------------------------------------------
  *  Stan wewnetrzny przyciskow
@@ -205,7 +187,7 @@ static void handle_short(int idx)
 
         } else if (mode == DISP_MODE_BAND_MENU) {
             /* Wybor pasma w menu */
-            uint32_t bfrq = BANDS[s_band_sel].freq_hz;
+            uint32_t bfrq = VFO_BANDS[s_band_sel].freq_hz;
             s_band_menu_open = false;
             VFO_LOCK();
             g_vfo.freq        = bfrq;
@@ -215,7 +197,7 @@ static void handle_short(int idx)
             g_vfo.f_disp_changed = true;
             VFO_UNLOCK();
             ESP_LOGI(TAG_BTN, "BAND -> %s (%lu Hz)",
-                     BANDS[s_band_sel].name, (unsigned long)bfrq);
+                     VFO_BANDS[s_band_sel].label, (unsigned long)bfrq);
 
         } else {
             /* Przewijanie bankow pamieci */

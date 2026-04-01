@@ -26,3 +26,6 @@ void si5351_set_car_freq(uint32_t freq_hz, bool enable);
 
 /* Wycisz / odcisz pojedyncze wyjscie (clk_num = 0, 1 lub 2) */
 void si5351_output_enable(uint8_t clk_num, bool enable);
+
+/* Kalibracja kwarcu — koryguje efektywna czestotliwosc XTAL [Hz], zakres +/-5000 */
+void si5351_set_xtal_cal(int32_t cal);

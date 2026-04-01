@@ -11,6 +11,7 @@
 #include "esp_log.h"
 #include "esp_err.h"
 #include "nvs_flash.h"
+#include "driver/ledc.h"
 
 #include "config.h"
 #include "vfo_state.h"
@@ -26,6 +27,7 @@
 static void display_task(void *arg);
 static void system_init(void);
 static void tasks_start(void);
+static void backlight_init(uint8_t pct);
 
 /*===========================================================================
  *  app_main
@@ -83,10 +85,47 @@ static void system_init(void)
                 VFO_UNLOCK();
             }
         }
+        /* Pozostale parametry z NVS */
+        int      step_idx = FREQ_STEP_DEFAULT;
+        int32_t  xtal_cal = 0, if_off = 0, rit_off = 0;
+        uint8_t  bright   = BRIGHTNESS_DEFAULT;
+        int      last_mem = 0;
+
+        if (nvs_load_step_idx(&step_idx) == ESP_OK) {
+            if (step_idx < 0) step_idx = 0;
+            if (step_idx >= FREQ_STEP_COUNT) step_idx = FREQ_STEP_COUNT - 1;
+        }
+        nvs_load_xtal_cal(&xtal_cal);
+        nvs_load_if_offset(&if_off);
+        nvs_load_brightness(&bright);
+        if (bright < BRIGHTNESS_MIN || bright > BRIGHTNESS_MAX)
+            bright = BRIGHTNESS_DEFAULT;
+        nvs_load_last_mem(&last_mem);
+        nvs_load_rit(&rit_off);
+
+        VFO_LOCK();
+        g_vfo.step_idx    = step_idx;
+        g_vfo.xtal_cal    = xtal_cal;
+        g_vfo.if_offset   = if_off;
+        g_vfo.brightness  = bright;
+        g_vfo.last_mem_idx = last_mem;
+        g_vfo.rit_offset  = rit_off;
+        VFO_UNLOCK();
     }
+
+    /* Podswietlenie PWM */
+    VFO_LOCK();
+    uint8_t bright = g_vfo.brightness;
+    VFO_UNLOCK();
+    backlight_init(bright);
+    ESP_LOGI(TAG_MAIN, "Podswietlenie LEDC: OK (%d%%)", (int)bright);
 
     err = si5351_init();
     ESP_ERROR_CHECK(err);
+    VFO_LOCK();
+    int32_t cal = g_vfo.xtal_cal;
+    VFO_UNLOCK();
+    if (cal != 0) si5351_set_xtal_cal(cal);
     ESP_LOGI(TAG_MAIN, "Si5351A: OK");
 
     err = display_init();
@@ -179,7 +218,7 @@ static void display_task(void *arg)
 
         if (f_freq) {
             si5351_set_freq(freq);
-            si5351_set_car_freq(car_freq, car_on);
+            si5351_set_car_freq(freq, car_on);
         }
 
         if (f_disp) {
@@ -205,15 +244,17 @@ static void display_task(void *arg)
                 disp_str8(str, 5, 85, 0xffd080);
             }
 
-            /* Częstotliwość cyfrowa */
-            snprintf(str, sizeof(str), "%3lu.%03lu,%02lu",
-                (unsigned long)(freq / 1000000UL),
-                (unsigned long)((freq / 1000UL) % 1000UL),
-                (unsigned long)((freq / 10UL)   % 100UL));
-            disp_str16(str, 17, 105, 0xffd080);
-            disp_str12("MHz", 120, 106, 0xffd080);
+            /* Częstotliwość cyfrowa — ukryta gdy LOCK aktywny */
+            if (!locked) {
+                snprintf(str, sizeof(str), "%3lu.%03lu,%02lu",
+                    (unsigned long)(freq / 1000000UL),
+                    (unsigned long)((freq / 1000UL) % 1000UL),
+                    (unsigned long)((freq / 10UL)   % 100UL));
+                disp_str16(str, 17, 105, 0xffd080);
+                disp_str12("MHz", 120, 106, 0xffd080);
+            }
 
-            /* LOCK — ikona kłódki w rogu ramki */
+            /* LOCK — napis na dole ekranu (zajmuje y=105..127) */
             ui_draw_lock_icon(locked);
 
             /* Overlaye trybow */
@@ -233,4 +274,43 @@ static void display_task(void *arg)
 
         vTaskDelay(pdMS_TO_TICKS(10));
     }
+}
+
+/*===========================================================================
+ *  backlight_init / backlight_set — PWM podswietlenia (LEDC)
+ *===========================================================================*/
+static void backlight_init(uint8_t pct)
+{
+    ledc_timer_config_t timer = {
+        .speed_mode      = LEDC_LOW_SPEED_MODE,
+        .timer_num       = LEDC_TIMER_BL,
+        .duty_resolution = LEDC_TIMER_8_BIT,
+        .freq_hz         = LEDC_FREQ_BL,
+        .clk_cfg         = LEDC_AUTO_CLK,
+    };
+    ledc_timer_config(&timer);
+
+    ledc_channel_config_t ch = {
+        .gpio_num   = DISP_BL,
+        .speed_mode = LEDC_LOW_SPEED_MODE,
+        .channel    = LEDC_CHANNEL_BL,
+        .timer_sel  = LEDC_TIMER_BL,
+        .duty       = 0,
+        .hpoint     = 0,
+    };
+    ledc_channel_config(&ch);
+
+    /* Ustaw poczatkowe wypelnienie */
+    uint32_t duty = (uint32_t)pct * 255 / 100;
+    ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_BL, duty);
+    ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_BL);
+}
+
+void backlight_set(uint8_t pct)
+{
+    if (pct > BRIGHTNESS_MAX) pct = BRIGHTNESS_MAX;
+    if (pct < BRIGHTNESS_MIN) pct = BRIGHTNESS_MIN;
+    uint32_t duty = (uint32_t)pct * 255 / 100;
+    ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_BL, duty);
+    ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_BL);
 }
