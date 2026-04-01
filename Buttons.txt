@@ -1,0 +1,4 @@
+1 switch G25
+2 switch + ENKODER switch G32 
+3 switch G26
+4 switch G27
