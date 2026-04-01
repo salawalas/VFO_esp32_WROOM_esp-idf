@@ -20,6 +20,7 @@ typedef enum {
     DISP_MODE_XTAL_CAL,      /* kalibracja kwarcu          */
     DISP_MODE_IF_OFFSET,     /* offset IF                  */
     DISP_MODE_SCAN,          /* tryb skanowania            */
+    DISP_MODE_BRIGHTNESS,    /* regulacja jasnosci         */
 } disp_mode_t;
 
 typedef struct {

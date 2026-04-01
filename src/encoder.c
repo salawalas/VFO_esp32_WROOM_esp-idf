@@ -24,6 +24,7 @@
 #include "encoder.h"
 #include "config.h"
 #include "vfo_state.h"
+#include "display.h"
 #include "esp_log.h"
 #include "driver/gpio.h"
 #include "driver/pulse_cnt.h"
@@ -221,6 +222,16 @@ void encoder_task(void *arg)
                     g_vfo.xtal_cal       = new_cal;
                     g_vfo.f_freq_changed = true;
                     g_vfo.f_disp_changed = true;
+
+                } else if (cur_mode == DISP_MODE_BRIGHTNESS) {
+                    /* Jasnosc — krok BRIGHTNESS_STEP na detent */
+                    int new_br = (int)g_vfo.brightness + detents * BRIGHTNESS_STEP;
+                    if (new_br > BRIGHTNESS_MAX) new_br = BRIGHTNESS_MAX;
+                    if (new_br < BRIGHTNESS_MIN) new_br = BRIGHTNESS_MIN;
+                    g_vfo.brightness     = (uint8_t)new_br;
+                    g_vfo.f_disp_changed = true;
+                    /* Natychmiastowa zmiana PWM bez czekania na display_task */
+                    display_brightness_set((uint8_t)new_br);
 
                 } else {
                     /* Normalny tryb VFO */

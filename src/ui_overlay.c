@@ -303,6 +303,59 @@ void ui_draw_band_menu(int selected_idx)
 }
 
 /* =========================================================================
+ *  ui_draw_brightness — ekran regulacji jasnosci podswietlenia
+ *
+ *  Wyswietla:
+ *    - naglowek BRIGHTNESS
+ *    - pasek postępu (graficzny)
+ *    - wartosc procentowa (duza czcionka)
+ *    - podpowiedz: ENC=zmien  MEM/CAL=save  SAVE=cancel
+ * ====================================================================== */
+void ui_draw_brightness(uint8_t pct)
+{
+    char str[24];
+
+    /* Tlo */
+    boxfill(0, 0, NX - 1, NY - 1, 0x0a0808);
+
+    /* Naglowek */
+    ui_rounded_box(2, 2, NX - 3, 16, 0x1a0d00, 0xffaa00);
+    disp_str8("BRIGHTNESS", 34, 5, 0xffd080);
+
+    /* Wartosc procentowa */
+    snprintf(str, sizeof(str), "%d%%", (int)pct);
+    disp_str20(str, 52, 30, 0xffd080);
+
+    /* Pasek graficzny (10 segmentow = 10..100%) */
+    const int bar_x = 10;
+    const int bar_y = 62;
+    const int bar_w = NX - 20;   /* 140px */
+    const int bar_h = 14;
+    int segments = (pct - BRIGHTNESS_MIN) / BRIGHTNESS_STEP + 1;
+    if (segments < 0)  segments = 0;
+    if (segments > 10) segments = 10;
+
+    /* Tlo paska */
+    ui_rounded_box(bar_x - 2, bar_y - 2, bar_x + bar_w + 1, bar_y + bar_h + 1,
+                   0x1a0d00, 0x886600);
+    /* Wypelnione segmenty */
+    for (int i = 0; i < 10; i++) {
+        int sx = bar_x + i * 14;
+        uint32_t col = (i < segments) ? 0xffd080 : 0x332200;
+        boxfill(sx, bar_y, sx + 12, bar_y + bar_h, col);
+    }
+
+    /* Dolna belka — podpowiedz */
+    boxfill(0, NY - 28, NX - 1, NY - 15, 0x0a0808);
+    draw_line(0, NY - 28, NX - 1, NY - 28, 0x664400);
+    disp_str8("ENC = zmien jasnosc", 6, NY - 25, 0x886600);
+    boxfill(0, NY - 14, NX - 1, NY - 1, 0x100800);
+    draw_line(0, NY - 14, NX - 1, NY - 14, 0x664400);
+    disp_str8("MEM=SAVE", 4,  NY - 11, 0x00aa00);
+    disp_str8("SAVE=X",   88, NY - 11, 0x884400);
+}
+
+/* =========================================================================
  *  ui_draw_xtal_cal — ekran kalibracji kwarcu
  *
  *  Caly ekran (160x128):

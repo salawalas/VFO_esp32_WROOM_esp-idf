@@ -29,3 +29,4 @@ void ui_draw_band_menu(int selected_idx);
 
 /* Narysuj ekran kalibracji kwarcu XTAL */
 void ui_draw_xtal_cal(int32_t cal);
+void ui_draw_brightness(uint8_t pct);

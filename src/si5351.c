@@ -44,6 +44,8 @@ static uint32_t s_ms_car = 0;   /* CLK0+CLK2 / PLL_A */
 
 /*--- kalibracja kwarcu [Hz], domyslnie 0 ---*/
 static int32_t  s_xtal_cal = 0;
+static int32_t  s_xtal_cal_prev_lo  = 1;  /* wymusza reset PLL przy starcie */
+static int32_t  s_xtal_cal_prev_car = 1;  /* j.w. dla PLL_A */
 
 /* -------------------------------------------------------------------------
  *  I2C — zapis
@@ -252,25 +254,25 @@ void si5351_set_freq(uint32_t freq_hz)
     uint32_t P1, P2, P3, R, MS_a;
     calc_ms(FVCO_NOMINAL, freq_hz, &P1, &P2, &P3, &R, &MS_a);
 
-    /* Integer MS — P2=0, P3=1, P1=128*MS_a-512.
-     * Bit MS_INT jest juz ustawiony w rejestrze CLK1 (0x6F bit6=1).
-     * calc_ms zwraca ułamkowe P1/P2/P3 dla FVCO_NOMINAL, ale PLL
-     * programujemy na fvco = freq*MS_a — te dwie wartości są niespójne.
-     * Nadpisanie integer-MS jest wymagane do uzyskania poprawnej częstotliwości. */
-    if (MS_a != 4) {
-        P1 = 128 * MS_a - 512;
-        P2 = 0;
-        P3 = 1;
-    }
+    /* Tryb ulamkowy MS — pozwala kalibracji XTAL faktycznie wplywac na
+     * czestotliwosc wyjsciowa. W trybie integer P2=0 wiec PLL musi
+     * trafic dokladnie w freq*MS_a co "pochlania" korekte kwarcu.
+     * Zostawiamy P1/P2/P3 z calc_ms (ulamkowe) dla poprawnej syntezy. */
 
-    /* fVCO dokładne dla integer MS_a */
-    uint32_t fvco = freq_hz * MS_a * (1u << R);
-    uint32_t pp1, pp2, pp3;
+    /* Efektywna czestotliwosc kwarcu z kalibracja */
     uint32_t xtal = (uint32_t)((int32_t)SI5351_XTAL_FREQ + s_xtal_cal);
+
+    /* fVCO: dla ulamkowego MS uzywamy FVCO_NOMINAL jako cel —
+     * PLL bedzie skalibrowany kwarcem, MS bedzie dokladny */
+    uint32_t fvco = (uint32_t)((uint64_t)freq_hz * MS_a * (1u << R));
+
+    uint32_t pp1, pp2, pp3;
     calc_pll(fvco, xtal, &pp1, &pp2, &pp3);
 
-    bool rst = (s_ms_lo != MS_a);
+    /* Reset PLL gdy zmienia sie dzielnik MS LUB kalibracja kwarcu */
+    bool rst = (s_ms_lo != MS_a) || (s_xtal_cal_prev_lo != s_xtal_cal);
     s_ms_lo = MS_a;
+    s_xtal_cal_prev_lo = s_xtal_cal;
 
     xSemaphoreTake(s_mtx, portMAX_DELAY);
     wr_pll(34, pp1, pp2, pp3);                        /* PLL_B reg 34-41 */
@@ -318,8 +320,9 @@ void si5351_set_car_freq(uint32_t freq_hz, bool enable)
     uint32_t xtal = (uint32_t)((int32_t)SI5351_XTAL_FREQ + s_xtal_cal);
     calc_pll(fvco, xtal, &pp1, &pp2, &pp3);
 
-    bool rst = (s_ms_car != MS_a);
+    bool rst = (s_ms_car != MS_a) || (s_xtal_cal_prev_car != s_xtal_cal);
     s_ms_car = MS_a;
+    s_xtal_cal_prev_car = s_xtal_cal;
 
     xSemaphoreTake(s_mtx, portMAX_DELAY);
     wr_pll(26, pp1, pp2, pp3);                        /* PLL_A reg 26-33 */

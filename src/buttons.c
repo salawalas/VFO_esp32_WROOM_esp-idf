@@ -73,8 +73,9 @@ typedef struct {
 
 static btn_state_t s_btn[BTN_COUNT];
 
-/* Zapisana wartosc xtal_cal przed wejsciem w tryb kalibracji (do cancel) */
-static int32_t s_xtal_cal_saved = 0;
+/* Zapisane wartosci przed wejsciem w tryby kalibracji/regulacji (do cancel) */
+static int32_t s_xtal_cal_saved   = 0;
+static uint8_t s_brightness_saved = 0;
 
 /*---------------------------------------------------------------------------
  *  Prototypy wewnetrzne
@@ -155,7 +156,17 @@ static void handle_short(int idx)
         break;
 
     case IDX_MEM:
-        if (mode == DISP_MODE_XTAL_CAL) {
+        if (mode == DISP_MODE_BRIGHTNESS) {
+            /* Zapisz jasnosc do NVS i wyjdz */
+            VFO_LOCK();
+            uint8_t br = g_vfo.brightness;
+            g_vfo.disp_mode      = DISP_MODE_VFO;
+            g_vfo.f_disp_changed = true;
+            VFO_UNLOCK();
+            nvs_save_brightness(br);
+            ESP_LOGI(TAG_BTN, "BRIGHTNESS zapisano: %d%%", (int)br);
+
+        } else if (mode == DISP_MODE_XTAL_CAL) {
             /* Zapisz kalibracje do NVS i wyjdz */
             VFO_LOCK();
             int32_t cal = g_vfo.xtal_cal;
@@ -219,6 +230,16 @@ static void handle_short(int idx)
             g_vfo.f_disp_changed = true;
             VFO_UNLOCK();
 
+        } else if (mode == DISP_MODE_BRIGHTNESS) {
+            /* Anuluj regulacje jasnosci — przywroc poprzednia wartosc */
+            VFO_LOCK();
+            g_vfo.brightness     = s_brightness_saved;
+            g_vfo.disp_mode      = DISP_MODE_VFO;
+            g_vfo.f_disp_changed = true;
+            VFO_UNLOCK();
+            ESP_LOGI(TAG_BTN, "BRIGHTNESS anulowana, przywrocono %d%%",
+                     (int)s_brightness_saved);
+
         } else if (mode == DISP_MODE_XTAL_CAL) {
             /* Anuluj kalibracje — przywroc poprzednia wartosc */
             VFO_LOCK();
@@ -233,8 +254,17 @@ static void handle_short(int idx)
         break;
 
     case IDX_BAND:
-        if (mode == DISP_MODE_XTAL_CAL) {
-            /* Drugi raz BTN_CAL (GPIO33) — wyjdz bez zapisu */
+        if (mode == DISP_MODE_BRIGHTNESS) {
+            /* Krotkie ponownie — zatwierdz i wyjdz */
+            VFO_LOCK();
+            uint8_t br = g_vfo.brightness;
+            g_vfo.disp_mode      = DISP_MODE_VFO;
+            g_vfo.f_disp_changed = true;
+            VFO_UNLOCK();
+            nvs_save_brightness(br);
+            ESP_LOGI(TAG_BTN, "BRIGHTNESS zapisano: %d%%", (int)br);
+        } else if (mode == DISP_MODE_XTAL_CAL) {
+            /* Krotkie podczas XTAL_CAL — anuluj */
             VFO_LOCK();
             g_vfo.xtal_cal       = s_xtal_cal_saved;
             g_vfo.disp_mode      = DISP_MODE_VFO;
@@ -242,14 +272,14 @@ static void handle_short(int idx)
             g_vfo.f_disp_changed = true;
             VFO_UNLOCK();
         } else {
-            /* Wejdz w tryb kalibracji kwarcu */
+            /* Wejdz w regulacje jasnosci */
             VFO_LOCK();
-            s_xtal_cal_saved     = g_vfo.xtal_cal;
-            g_vfo.disp_mode      = DISP_MODE_XTAL_CAL;
+            s_brightness_saved   = g_vfo.brightness;
+            g_vfo.disp_mode      = DISP_MODE_BRIGHTNESS;
             g_vfo.f_disp_changed = true;
             VFO_UNLOCK();
-            ESP_LOGI(TAG_BTN, "XTAL_CAL tryb — biezaca korekta: %ld Hz",
-                     (long)s_xtal_cal_saved);
+            ESP_LOGI(TAG_BTN, "BRIGHTNESS tryb — biezaca jasnosc: %d%%",
+                     (int)s_brightness_saved);
         }
         break;
     }
@@ -297,6 +327,18 @@ static void handle_long(int idx)
         g_vfo.f_disp_changed = true;
         VFO_UNLOCK();
         ESP_LOGI(TAG_BTN, "SAVE dialog otwarty dla M%d", 0);
+        break;
+    }
+
+    case IDX_BAND: {
+        /* Dlugie nacisniecie — wejdz w kalibracje kwarcu */
+        VFO_LOCK();
+        s_xtal_cal_saved     = g_vfo.xtal_cal;
+        g_vfo.disp_mode      = DISP_MODE_XTAL_CAL;
+        g_vfo.f_disp_changed = true;
+        VFO_UNLOCK();
+        ESP_LOGI(TAG_BTN, "XTAL_CAL tryb — biezaca korekta: %ld Hz",
+                 (long)s_xtal_cal_saved);
         break;
     }
 

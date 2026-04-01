@@ -231,6 +231,13 @@ static void display_task(void *arg)
                 /* Pelnoekranowy ekran kalibracji — pomija dial_draw */
                 ui_draw_xtal_cal(xtal_cal);
 
+            } else if (mode == DISP_MODE_BRIGHTNESS) {
+                /* Pelnoekranowy ekran regulacji jasnosci */
+                VFO_LOCK();
+                uint8_t br = g_vfo.brightness;
+                VFO_UNLOCK();
+                ui_draw_brightness(br);
+
             } else {
                 /* Normalny widok VFO + overlaye */
                 boxfill(0, 0, NX - 1, NY - 1, 0x000000);
