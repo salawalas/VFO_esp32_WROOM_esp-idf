@@ -31,7 +31,7 @@
  *  Dla niektorych modulow: COL=0, ROW=0  lub  COL=2, ROW=3
  *--------------------------------------------------------------------------*/
 #define COL_OFFSET   2
-#define ROW_OFFSET   3
+#define ROW_OFFSET   1
 
 /*---------------------------------------------------------------------------
  *  MADCTL — orientacja wyswietlacza
