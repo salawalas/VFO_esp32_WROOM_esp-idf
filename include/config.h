@@ -151,9 +151,9 @@ static const int32_t FREQ_STEPS[FREQ_STEP_COUNT] = {
 /*---------------------------------------------------------------------------
  *  Wersja firmware
  *--------------------------------------------------------------------------*/
-#define FW_NAME     "VFO System"
-#define FW_VERSION  "Ver. 2.00"
-#define FW_AUTHOR   "Marcin / ESP-IDF port"
+//#define FW_NAME     "VFO System"
+//#define FW_VERSION  "Ver. 2.00"
+//#define FW_AUTHOR   "Marcin / ESP-IDF port"
 
 /*---------------------------------------------------------------------------
  *  Ujednolicona struktura pasm (zastepuje BANDS[] w buttons.c i BAND_LABELS[] w ui_overlay.c)

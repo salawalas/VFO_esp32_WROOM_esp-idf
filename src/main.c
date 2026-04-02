@@ -23,6 +23,8 @@
 #include "buttons.h"
 #include "nvs_storage.h"
 #include "ui_overlay.h"
+#include "version.h"
+#include "esp_system.h"
 
 static void display_task(void *arg);
 static void system_init(void);
@@ -35,8 +37,14 @@ static void backlight_init(uint8_t pct);
 void app_main(void)
 {
     ESP_LOGI(TAG_MAIN, "============================================");
-    ESP_LOGI(TAG_MAIN, "  %s  %s", FW_NAME, FW_VERSION);
-    ESP_LOGI(TAG_MAIN, "  %s", FW_AUTHOR);
+    //ESP_LOGI(TAG_MAIN, "  %s  %s", FW_NAME, FW_VERSION);
+    //ESP_LOGI(TAG_MAIN, "  %s", FW_AUTHOR);
+    //ESP_LOGI(TAG_MAIN, "============================================");
+
+    ESP_LOGI(TAG_MAIN, "%s %s", FW_NAME, FW_VERSION);
+    ESP_LOGI(TAG_MAIN, "%s", FW_AUTHOR);
+    ESP_LOGI(TAG_MAIN, "%s", BUILD_DATE);
+    ESP_LOGI(TAG_MAIN, "commit %s", FW_COMMIT);
     ESP_LOGI(TAG_MAIN, "============================================");
 
     /* NVS flash init */
@@ -142,14 +150,59 @@ static void system_init(void)
     ESP_ERROR_CHECK(err);
     ESP_LOGI(TAG_MAIN, "Przyciski GPIO: OK");
 
-    /* Splash screen — wyswietl i odczekaj PRZED uruchomieniem taskow */
-    gram_clear();
-    disp_str16(FW_NAME,    20,  55, 0x00ffff);
-    disp_str12(FW_VERSION, 45,  38, 0x00ffff);
-    disp_str8 (FW_AUTHOR,  20,   5, 0xffd080);
-    display_trans65k();
-    display_transfer_image();
-    vTaskDelay(pdMS_TO_TICKS(5000));
+
+
+    /* Splash screen */
+    {
+        char spl[48];
+        gram_clear();
+
+        /* Naglowek z ramka */
+        boxfill(2, 108, NX - 3, NY - 2, 0x001a2a);
+        draw_box(2, 108, NX - 3, NY - 2, 0x0066aa);
+        disp_str16(FW_NAME, 22, 110, 0x00ccff);
+
+        /* Separator 1 */
+        draw_line(4, 106, NX - 5, 106, 0x224466);
+
+        /* Wersja + commit hash */
+        disp_str8("ver", 4, 95, 0x778899);
+        disp_str12(FW_VERSION, 30, 92, 0xffd080);
+        snprintf(spl, sizeof(spl), "#%s", FW_COMMIT);
+        disp_str12(spl, 88, 92, 0xff8833);
+
+        /* Data buildu */
+        disp_str8(BUILD_DATE, 4, 78, 0x99aabb);
+
+        /* Separator 2 */
+        draw_line(4, 74, NX - 5, 74, 0x224433);
+
+        /* Heap */
+        uint32_t heap_kb = esp_get_free_heap_size() / 1024;
+        disp_str8("Heap", 4, 64, 0x55aa55);
+        snprintf(spl, sizeof(spl), "%lu KB free", (unsigned long)heap_kb);
+        disp_str12(spl, 38, 61, 0x66ff66);
+
+        /* CPU freq */
+        disp_str8("CPU", 4, 48, 0x55aa55);
+        snprintf(spl, sizeof(spl), "%d MHz", CONFIG_ESP32_DEFAULT_CPU_FREQ_MHZ);
+        disp_str12(spl, 38, 45, 0x66ff66);
+
+        /* IDF version */
+        disp_str8("IDF", 4, 32, 0x55aa55);
+        disp_str12(esp_get_idf_version(), 38, 29, 0x88ddaa);
+
+        /* Separator 3 */
+        draw_line(4, 25, NX - 5, 25, 0x1a2a1a);
+
+        /* Autor + sprzet */
+        disp_str12(FW_AUTHOR, 4, 10, 0x6699bb);
+        disp_str8("ST7735 Si5351A", 78, 14, 0x6699bb);
+
+        display_trans65k();
+        display_transfer_image();
+        vTaskDelay(pdMS_TO_TICKS(5000));
+    }
 
     /* Po splashu — wyczysc ekran i ustaw flagi dla display_task */
     gram_clear();
