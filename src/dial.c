@@ -330,9 +330,9 @@ void Dial(long freq)
 
   if (freq < 0) {
     freq = - freq;
-    fsign = -1.0;
+    fsign = 1.0;   /* odwrocona wzgledem oryginalu — wyzsze wartosci po prawej */
   } else {
-    fsign = 1.0;
+    fsign = -1.0;  /* odwrocona wzgledem oryginalu — wyzsze wartosci po prawej */
   }
 
   //----------------------------------------------------

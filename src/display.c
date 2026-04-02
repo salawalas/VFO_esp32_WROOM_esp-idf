@@ -30,7 +30,7 @@
  *  Typowe wartosci dla ST7735S 1.8": COL=2, ROW=1
  *  Dla niektorych modulow: COL=0, ROW=0  lub  COL=2, ROW=3
  *--------------------------------------------------------------------------*/
-#define COL_OFFSET   2
+#define COL_OFFSET   3
 #define ROW_OFFSET   2
 
 /*---------------------------------------------------------------------------
