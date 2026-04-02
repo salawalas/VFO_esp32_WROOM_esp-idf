@@ -1,9 +1,7 @@
-name: Build ESP32 firmware
+name: Build ESP-IDF firmware
 
 on:
   push:
-    branches: [ main ]
-  pull_request:
     branches: [ main ]
 
 jobs:
@@ -16,22 +14,17 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
 
-    - name: Install Arduino CLI
-      run: |
-        curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | sh
-        sudo mv bin/arduino-cli /usr/local/bin/
+    - name: Setup ESP-IDF
+      uses: espressif/esp-idf-ci-action@v1
+      with:
+        esp_idf_version: v5.1
 
-    - name: Setup ESP32 core
+    - name: Build project
       run: |
-        arduino-cli config init
-        arduino-cli core update-index
-        arduino-cli core install esp32:esp32
+        . $IDF_PATH/export.sh
+        idf.py build
 
-    - name: Compile project
-      run: |
-        arduino-cli compile --fqbn esp32:esp32:esp32 .
-
-    - name: Upload firmware artifact
+    - name: Upload firmware
       uses: actions/upload-artifact@v4
       with:
         name: firmware
