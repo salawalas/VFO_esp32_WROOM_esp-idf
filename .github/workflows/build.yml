@@ -9,11 +9,15 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
 
       - name: Checkout repo
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -37,13 +41,43 @@ jobs:
           pip install -U pip
           pip install platformio
 
+      - name: Generate version tag
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        run: |
+          # Pobierz ostatni tag vX.Y, zwieksz Y o 1
+          LAST_TAG=$(git tag --list 'v*.*' --sort=-version:refname | head -1)
+          if [ -z "$LAST_TAG" ]; then
+            NEW_TAG="v1.0"
+          else
+            MAJOR=$(echo $LAST_TAG | cut -d. -f1 | tr -d 'v')
+            MINOR=$(echo $LAST_TAG | cut -d. -f2)
+            NEW_TAG="v${MAJOR}.$((MINOR + 1))"
+          fi
+          echo "NEW_TAG=$NEW_TAG" >> $GITHUB_ENV
+          echo "Generated tag: $NEW_TAG"
+
       - name: PlatformIO build
         run: pio run
+        env:
+          VERSION: ${{ env.NEW_TAG }}
 
       - name: Upload firmware artifact
         uses: actions/upload-artifact@v4
         with:
-          name: firmware
+          name: firmware-${{ env.NEW_TAG }}
           path: |
+            .pio/build/**/firmware.bin
+            .pio/build/**/*.elf
+
+      - name: Create tag and Release
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.NEW_TAG }}
+          name: VFO ${{ env.NEW_TAG }}
+          body: |
+            **ESP32 VFO** — automatyczny build
+            Commit: `${{ github.sha }}`
+          files: |
             .pio/build/**/firmware.bin
             .pio/build/**/*.elf

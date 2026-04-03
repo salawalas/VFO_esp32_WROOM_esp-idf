@@ -197,7 +197,7 @@ static void system_init(void)
 
         /* Autor + sprzet */
         disp_str12(FW_AUTHOR, 4, 10, 0x6699bb);
-        disp_str8("ST7735 Si5351A", 78, 14, 0x6699bb);
+        disp_str8("ST7735 Si5351A", 70, 14, 0x6699bb);
 
         display_trans65k();
         display_transfer_image();
