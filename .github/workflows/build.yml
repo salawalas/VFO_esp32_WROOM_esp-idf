@@ -44,17 +44,18 @@ jobs:
       - name: Generate version tag
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         run: |
-          # Pobierz ostatni tag vX.Y, zwieksz Y o 1
-          LAST_TAG=$(git tag --list 'v*.*' --sort=-version:refname | head -1)
-          if [ -z "$LAST_TAG" ]; then
-            NEW_TAG="v1.0"
-          else
-            MAJOR=$(echo $LAST_TAG | cut -d. -f1 | tr -d 'v')
-            MINOR=$(echo $LAST_TAG | cut -d. -f2)
-            NEW_TAG="v${MAJOR}.$((MINOR + 1))"
-          fi
-          echo "NEW_TAG=$NEW_TAG" >> $GITHUB_ENV
-          echo "Generated tag: $NEW_TAG"
+             LAST_TAG=$(git tag --list 'v*.*' --sort=-version:refname | head -1)
+             if [ -z "$LAST_TAG" ]; then
+             NEW_TAG="v1.01"
+             else
+             MAJOR=$(echo $LAST_TAG | cut -d. -f1 | tr -d 'v')
+             MINOR=$(echo $LAST_TAG | cut -d. -f2)
+      # Dodaj 1 do minor, formatuj z wiodacym zerem (01, 02 ... 09, 10)
+        NEW_MINOR=$(printf "%02d" $((10#$MINOR + 1)))
+        NEW_TAG="v${MAJOR}.${NEW_MINOR}"
+        fi
+        echo "NEW_TAG=$NEW_TAG" >> $GITHUB_ENV
+        echo "Generated tag: $NEW_TAG"
 
       - name: PlatformIO build
         run: pio run
