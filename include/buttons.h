@@ -6,7 +6,7 @@
  *    BTN_STEP_UP (GPIO26) — krok w gore
  *    BTN_MEM     (GPIO25) — pamiec / YES w dialogu zapisu
  *    BTN_SAVE    (GPIO32) — zapis / NO w dialogu
- *    BTN_BAND    (GPIO??) — menu wyboru pasma (5. przycisk)
+ *    BTN_BAND    (GPIO33) — menu wyboru pasma (5. przycisk)
  *
  *  Logika czasowa:
  *    Krotkie nacisniecie (<500ms): akcja podstawowa
