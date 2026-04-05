@@ -75,6 +75,8 @@ jobs:
         with:
           tag_name: ${{ env.NEW_TAG }}
           name: VFO ${{ env.NEW_TAG }}
+          make_latest: true
+          fail_on_unmatched_files: false
           body: |
             **ESP32 VFO** — automatyczny build
             Commit: `${{ github.sha }}`
