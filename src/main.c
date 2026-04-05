@@ -25,6 +25,8 @@
 #include "ui_overlay.h"
 #include "version.h"
 #include "esp_system.h"
+#include "esp_chip_info.h"
+#include "esp_flash.h"
 
 static void display_task(void *arg);
 static void system_init(void);
@@ -65,6 +67,22 @@ void app_main(void)
     tasks_start();
 
     ESP_LOGI(TAG_MAIN, "Scheduler uruchomiony.");
+
+    esp_chip_info_t chip;
+    esp_chip_info(&chip);
+
+    uint32_t flash_size;
+    esp_flash_get_size(NULL, &flash_size);
+
+    ESP_LOGI("CHIP", "Model: ESP32 rev %d", chip.revision);
+    ESP_LOGI("CHIP", "Rdzenie CPU: %d", chip.cores);
+    ESP_LOGI("CHIP", "Flash: %lu MB", (unsigned long)(flash_size / (1024*1024)));
+    ESP_LOGI("CHIP", "WiFi: %s  BT: %s  BLE: %s",
+        (chip.features & CHIP_FEATURE_WIFI_BGN) ? "TAK" : "NIE",
+        (chip.features & CHIP_FEATURE_BT)       ? "TAK" : "NIE",
+        (chip.features & CHIP_FEATURE_BLE)      ? "TAK" : "NIE");
+    ESP_LOGI("CHIP", "RAM: ~520 KB SRAM (standard ESP32)");
+
     vTaskDelete(NULL);
 }
 

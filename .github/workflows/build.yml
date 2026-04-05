@@ -41,10 +41,6 @@ jobs:
           pip install -U pip
           pip install platformio
           
-      - name: Build firmware
-        run: |
-          pio run    
-
       - name: Generate version tag
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         run: |
@@ -59,6 +55,11 @@ jobs:
           fi
           echo "NEW_TAG=$NEW_TAG" >> $GITHUB_ENV
           echo "Generated tag: $NEW_TAG"
+
+      - name: Build firmware
+        run: pio run
+        env:
+          VERSION: ${{ env.NEW_TAG }}
 
       - name: Upload firmware artifact
         uses: actions/upload-artifact@v4
