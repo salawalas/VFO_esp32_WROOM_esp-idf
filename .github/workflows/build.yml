@@ -79,15 +79,13 @@ jobs:
           cp .pio/build/${{ matrix.env }}/firmware.bin artifacts/${{ matrix.env }}/ || true 
           cp .pio/build/${{ matrix.env }}/firmware.elf artifacts/${{ matrix.env }}/ || true 
           cp .pio/build/${{ matrix.env }}/firmware.map artifacts/${{ matrix.env }}/ || true
-
-      - name: Upload firmware artifact
+          
+      - name: Upload build artifacts
         uses: actions/upload-artifact@v4
-        with:
-          name: firmware-${{ env.NEW_TAG }}
-          path: |
-            .pio/build/**/firmware.bin
-            .pio/build/**/*.elf
-
+        with: 
+              name:firmware-${{ matrix.env }} 
+              path: artifacts/${{ matrix.env }}
+      
       - name: Create tag and Release
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         uses: softprops/action-gh-release@v2
