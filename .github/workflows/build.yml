@@ -7,18 +7,44 @@ on:
     branches: [ main ]
 
 jobs:
-  build:
+  # Job 1: generuj tag (raz, nie w matrix)
+  version:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-
-    strategy: 
-      matrix: 
-        env:
-         - esp32_release
-         - esp32_debug
+    outputs:
+      new_tag: ${{ steps.gen.outputs.new_tag }}
     steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
+      - name: Generate version tag
+        id: gen
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        run: |
+          LAST_TAG=$(git tag --list 'v*.*' --sort=-version:refname | head -1)
+          if [ -z "$LAST_TAG" ]; then
+            NEW_TAG="v1.01"
+          else
+            MAJOR=$(echo $LAST_TAG | cut -d. -f1 | tr -d 'v')
+            MINOR=$(echo $LAST_TAG | cut -d. -f2)
+            NEW_MINOR=$(printf "%02d" $((10#$MINOR + 1)))
+            NEW_TAG="v${MAJOR}.${NEW_MINOR}"
+          fi
+          echo "new_tag=$NEW_TAG" >> $GITHUB_OUTPUT
+          echo "Generated tag: $NEW_TAG"
+
+  # Job 2: buduj oba firmware w matrix
+  build:
+    needs: version
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        env: [esp32_release, esp32_debug]
+
+    steps:
       - name: Checkout repo
         uses: actions/checkout@v4
         with:
@@ -52,51 +78,51 @@ jobs:
         run: |
           pip install -U pip
           pip install platformio
-          
-      - name: Generate version tag
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-        run: |
-          LAST_TAG=$(git tag --list 'v*.*' --sort=-version:refname | head -1)
-          if [ -z "$LAST_TAG" ]; then
-            NEW_TAG="v1.01"
-          else
-            MAJOR=$(echo $LAST_TAG | cut -d. -f1 | tr -d 'v')
-            MINOR=$(echo $LAST_TAG | cut -d. -f2)
-            NEW_MINOR=$(printf "%02d" $((10#$MINOR + 1)))
-            NEW_TAG="v${MAJOR}.${NEW_MINOR}"
-          fi
-          echo "NEW_TAG=$NEW_TAG" >> $GITHUB_ENV
-          echo "Generated tag: $NEW_TAG"
 
       - name: Build firmware
         run: pio run -e ${{ matrix.env }}
         env:
-          VERSION: ${{ env.NEW_TAG }}
+          VERSION: ${{ needs.version.outputs.new_tag }}
 
       - name: Collect artifacts
         run: |
-          mkdir -p artifacts/${{ matrix.env }}
-          cp .pio/build/${{ matrix.env }}/firmware.bin artifacts/${{ matrix.env }}/ || true 
-          cp .pio/build/${{ matrix.env }}/firmware.elf artifacts/${{ matrix.env }}/ || true 
-          cp .pio/build/${{ matrix.env }}/firmware.map artifacts/${{ matrix.env }}/ || true
-          
-      - name: Upload build artifacts
+          mkdir -p artifacts
+          for f in firmware.bin firmware.elf firmware.map; do
+            src=".pio/build/${{ matrix.env }}/$f"
+            dst="artifacts/${{ matrix.env }}-$f"
+            [ -f "$src" ] && cp "$src" "$dst"
+          done
+
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
-        with: 
-              name:firmware-${{ matrix.env }} 
-              path: artifacts/${{ matrix.env }}
-      
-      - name: Create tag and Release
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        with:
+          name: firmware-${{ matrix.env }}
+          path: artifacts/
+
+  # Job 3: publikuj Release (po obu buildach)
+  release:
+    needs: [version, build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: all-artifacts
+
+      - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ env.NEW_TAG }}
-          name: VFO ${{ env.NEW_TAG }}
+          tag_name: ${{ needs.version.outputs.new_tag }}
+          name: VFO ${{ needs.version.outputs.new_tag }}
           make_latest: true
           fail_on_unmatched_files: false
           body: |
             **ESP32 VFO** — automatyczny build
             Commit: `${{ github.sha }}`
           files: |
-            .pio/build/**/firmware.bin
-            .pio/build/**/*.elf
+            all-artifacts/**/*.bin
+            all-artifacts/**/*.elf
