@@ -73,7 +73,8 @@ jobs:
         env:
           VERSION: ${{ env.NEW_TAG }}
 
-      - name: Collect artifacts run :|
+      - name: Collect artifacts
+        run: |
           mkdir -p artifacts/${{ matrix.env }}
           cp .pio/build/${{ matrix.env }}/firmware.bin artifacts/${{ matrix.env }}/ || true 
           cp .pio/build/${{ matrix.env }}/firmware.elf artifacts/${{ matrix.env }}/ || true 
