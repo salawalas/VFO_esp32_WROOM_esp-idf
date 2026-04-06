@@ -12,6 +12,11 @@ jobs:
     permissions:
       contents: write
 
+    strategy: 
+      matrix: 
+        env:
+         - esp32dev 
+         - esp32dev_debug
     steps:
 
       - name: Checkout repo
@@ -64,9 +69,15 @@ jobs:
           echo "Generated tag: $NEW_TAG"
 
       - name: Build firmware
-        run: pio run
+        run: pio run -e ${{ matrix.env }}
         env:
           VERSION: ${{ env.NEW_TAG }}
+
+      - name: Collect artifacts run :|
+          mkdir -p artifacts/${{ matrix.env }}
+          cp .pio/build/${{ matrix.env }}/firmware.bin artifacts/${{ matrix.env }}/ || true 
+          cp .pio/build/${{ matrix.env }}/firmware.elf artifacts/${{ matrix.env }}/ || true 
+          cp .pio/build/${{ matrix.env }}/firmware.map artifacts/${{ matrix.env }}/ || true
 
       - name: Upload firmware artifact
         uses: actions/upload-artifact@v4
