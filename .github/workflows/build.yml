@@ -15,8 +15,8 @@ jobs:
     strategy: 
       matrix: 
         env:
-         - esp32dev 
-         - esp32dev_debug
+         - esp32_release
+         - esp32_debug
     steps:
 
       - name: Checkout repo
