@@ -12,4 +12,5 @@ idf_component_register(
         "nvs_storage.c"
     INCLUDE_DIRS
         "../include"
-)
+    REQUIRES
+        nvs_flash driver esp_timer esp_event esp_system spi_flash)
