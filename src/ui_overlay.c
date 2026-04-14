@@ -40,6 +40,7 @@
 #define COL_GRAY        0x888888
 #define COL_DARK_BLUE   0x000d1a
 #define COL_BLUE_BORDER 0x4444aa
+#define COL_SKY_BLUE    0x00ccff
 
 /* -------------------------------------------------------------------------
  *  ui_rounded_box — prostokat z obramowaniem (2px border)
@@ -270,12 +271,15 @@ static const band_label_t BAND_LABELS[] = {
 
 void ui_draw_band_menu(int selected_idx)
 {
+    const uint32_t band_text_color = COL_SKY_BLUE;
+    const uint32_t band_selected_text_color = COL_CYAN;
+
     /* Tlo calego ekranu — ciemny granat */
     boxfill(0, 0, NX - 1, NY - 1, 0x00060F);
 
     /* Naglowek */
     ui_rounded_box(2, 2, NX - 3, 14, 0x001a33, 0x0088ff);
-    disp_str8(">> SELECT BAND <<", 18, 4, 0x00ccff);
+    disp_str8(">> SELECT BAND <<", 18, 4, band_text_color);
 
     /* Lista pasm */
     for (int i = 0; i < BAND_LABEL_COUNT; i++) {
@@ -285,13 +289,13 @@ void ui_draw_band_menu(int selected_idx)
         if (i == selected_idx) {
             /* Podswietlony wiersz */
             boxfill(4, y0, NX - 5, y1, 0x003300);
-            draw_line(4,  y0, NX - 5, y0, COL_GREEN);
-            draw_line(4,  y1, NX - 5, y1, COL_GREEN);
+            draw_line(4,  y0, NX - 5, y0, band_selected_text_color);
+            draw_line(4,  y1, NX - 5, y1, band_selected_text_color);
             /* Strzalka wskaznika */
-            disp_str8(">", 6, y0 + 2, COL_BRIGHT_GRN);
-            disp_str8(BAND_LABELS[i].name, 16, y0 + 2, COL_BRIGHT_GRN);
+            disp_str8(">", 6, y0 + 2, band_selected_text_color);
+            disp_str8(BAND_LABELS[i].name, 16, y0 + 2, band_selected_text_color);
         } else {
-            disp_str8(BAND_LABELS[i].name, 16, y0 + 2, 0x448844);
+            disp_str8(BAND_LABELS[i].name, 16, y0 + 2, band_text_color);
         }
     }
 

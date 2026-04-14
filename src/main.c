@@ -183,39 +183,40 @@ static void system_init(void)
         /* Separator 1 */
         draw_line(4, 106, NX - 5, 106, 0x224466);
 
-        /* Wersja + commit hash */
+        /* Wersja + commit hash w dwoch wierszach */
         disp_str8("ver", 4, 95, 0x778899);
         disp_str12(FW_VERSION, 30, 92, 0xffd080);
-        snprintf(spl, sizeof(spl), "#%s", FW_COMMIT);
-        disp_str12(spl, 88, 92, 0xff8833);
+        disp_str8("git", 4, 81, 0x778899);
+        snprintf(spl, sizeof(spl), "%s", FW_COMMIT);
+        disp_str12(spl, 30, 78, 0xff8833);
 
         /* Data buildu */
-        disp_str8(BUILD_DATE, 4, 78, 0x99aabb);
+        disp_str8(BUILD_DATE, 4, 68, 0x99aabb);
 
         /* Separator 2 */
-        draw_line(4, 74, NX - 5, 74, 0x224433);
+        draw_line(4, 64, NX - 5, 64, 0x224433);
 
         /* Heap */
         uint32_t heap_kb = esp_get_free_heap_size() / 1024;
-        disp_str8("Heap", 4, 64, 0x55aa55);
+        disp_str8("Heap", 4, 52, 0x55aa55);
         snprintf(spl, sizeof(spl), "%lu KB free", (unsigned long)heap_kb);
-        disp_str12(spl, 38, 61, 0x66ff66);
+        disp_str12(spl, 38, 49, 0x66ff66);
 
         /* CPU freq */
-        disp_str8("CPU", 4, 48, 0x55aa55);
+        disp_str8("CPU", 4, 36, 0x55aa55);
         snprintf(spl, sizeof(spl), "%d MHz", CONFIG_ESP32_DEFAULT_CPU_FREQ_MHZ);
-        disp_str12(spl, 38, 45, 0x66ff66);
+        disp_str12(spl, 38, 33, 0x66ff66);
 
         /* IDF version */
-        disp_str8("IDF", 4, 32, 0x55aa55);
-        disp_str12(esp_get_idf_version(), 38, 29, 0x88ddaa);
+        disp_str8("IDF", 4, 20, 0x55aa55);
+        disp_str12(esp_get_idf_version(), 38, 18, 0x88ddaa);
 
         /* Separator 3 */
-        draw_line(4, 25, NX - 5, 25, 0x1a2a1a);
+        draw_line(4, 13, NX - 5, 13, 0x1a2a1a);
 
         /* Autor + sprzet */
-        disp_str12(FW_AUTHOR, 4, 10, 0x6699bb);
-        disp_str8("ST7735 Si5351A", 70, 14, 0x6699bb);
+        disp_str8(FW_AUTHOR, 4, 2, 0x6699bb);
+        disp_str8("ST7735 Si5351A", 70, 2, 0x6699bb);
 
         display_trans65k();
         display_transfer_image();
