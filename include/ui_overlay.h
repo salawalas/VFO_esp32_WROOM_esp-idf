@@ -2,7 +2,7 @@
  *  ui_overlay.h — Graficzne overlaye VFO
  *  - Pytanie o zapis do pamieci (SAVE TO Mn?)
  *  - Potwierdzenie zapisu (SAVED / LOADED)
- *  - Kłódka LOCK w narozu ramki czestotliwosci
+ *  - Kłódka LOCK na srodku ekranu + napis na dole
  *===========================================================================*/
 #pragma once
 #include <stdint.h>

@@ -334,15 +334,13 @@ static void display_task(void *arg)
                     disp_str8(str, 5, 85, 0xffd080);
                 }
 
-                /* Częstotliwość cyfrowa — ukryta gdy LOCK aktywny */
-                if (!locked) {
-                    snprintf(str, sizeof(str), "%3lu.%03lu,%02lu",
-                        (unsigned long)(freq / 1000000UL),
-                        (unsigned long)((freq / 1000UL) % 1000UL),
-                        (unsigned long)((freq / 10UL)   % 100UL));
-                    disp_str16(str, 17, 105, 0xffd080);
-                    disp_str12("MHz", 120, 106, 0xffd080);
-                }
+                /* Częstotliwość cyfrowa */
+                snprintf(str, sizeof(str), "%3lu.%03lu,%02lu",
+                    (unsigned long)(freq / 1000000UL),
+                    (unsigned long)((freq / 1000UL) % 1000UL),
+                    (unsigned long)((freq / 10UL)   % 100UL));
+                disp_str16(str, 17, 105, 0xffd080);
+                disp_str12("MHz", 120, 106, 0xffd080);
 
                 /* LOCK — napis na dole ekranu */
                 ui_draw_lock_icon(locked);

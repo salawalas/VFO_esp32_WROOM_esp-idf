@@ -7,13 +7,13 @@
  *  Rozmieszczenie na ekranie 160x128 (landscape):
  *
  *   ┌─────────────────────────────────┐  y=0
- *   │  ramka czestotliwosci  [LOCK]   │  y=0..49
+ *   │  ramka czestotliwosci           │  y=0..49
  *   │  14.230,00 MHz                  │
  *   ├─────────────────────────────────┤  y=49
  *   │  VFO    STEPS 1 kHz             │  y=50..69
  *   ├─────────────────────────────────┤  y=70
  *   │                                 │
- *   │   [OVERLAY - caly ten obszar]   │  y=70..127
+ *   │  [LOCK: ikona srodek, tekst dol]│  y=70..127
  *   │                                 │
  *   └─────────────────────────────────┘  y=127
  *===========================================================================*/
@@ -42,6 +42,9 @@
 #define COL_BLUE_BORDER 0x4444aa
 #define COL_SKY_BLUE    0x00ccff
 
+/* Okna SAVE/LOAD sa przesuniete nizej fizycznie, poza ramke czestotliwosci. */
+#define UI_MSG_Y_SHIFT  (-25)
+
 /* -------------------------------------------------------------------------
  *  ui_rounded_box — prostokat z obramowaniem (2px border)
  * ---------------------------------------------------------------------- */
@@ -63,9 +66,7 @@ void ui_rounded_box(int x0, int y0, int x1, int y1,
 }
 
 /* -------------------------------------------------------------------------
- *  Ikona kłódki — 18x20 px, rysowana w prawym gornym rogu ramki
- *
- *  Pozycja: x=136..154, y=6..24 (wewnatrz ramki 7,0..153,49)
+ *  Ikona kłódki — duzy symbol na srodku ekranu
  *
  *  Kształt kłódki:
  *    - kabłąk: łuk U (2 pionowe + poziome na górze)
@@ -76,37 +77,61 @@ void ui_draw_lock_icon(bool locked)
 {
     if (!locked) return;
 
-    const int bx = 73;    /* x lewy kabłąka — wyśrodkowany (160-14)/2 */
-    const int by = 78;    /* y górny kabłąka — pasek info środek-dół  */
-    const int bw = 14;    /* szerokosc kłódki */
-
     uint32_t col = COL_RED;
 
-    /* Kabłąk — lewa noga */
-    draw_line(bx,      by + 5, bx,      by + 8, col);
-    draw_line(bx + 1,  by + 3, bx + 1,  by + 8, col);
-    /* Kabłąk — gorna poprzeczka */
-    draw_line(bx + 2,  by + 1, bx + bw - 2, by + 1, col);
-    draw_line(bx + 2,  by + 2, bx + bw - 2, by + 2, col);
-    /* Kabłąk — prawa noga */
-    draw_line(bx + bw - 1, by + 3, bx + bw - 1, by + 8, col);
-    draw_line(bx + bw,     by + 5, bx + bw,     by + 8, col);
+    const int body_w = 46;
+    const int body_h = 40;
+    const int body_x = (NX - body_w) / 2;
+    const int body_y2 = (NY / 2) + 1;
+    const int body_y = body_y2 - body_h;
+    const int body_x2 = body_x + body_w;
+
+    const int shackle_x = body_x + 8;
+    const int shackle_x2 = body_x2 - 8;
+    const int shackle_y = body_y2 - 4;
+    const int shackle_y2 = body_y2 + 24;
+    const int shackle_thick = 4;
+
+    /* Kabłąk — rysowany odwrotnie w framebufferze, bo panel odwraca os Y */
+    boxfill(shackle_x, shackle_y,
+            shackle_x + shackle_thick - 1, shackle_y2 - shackle_thick, col);
+    boxfill(shackle_x2 - shackle_thick + 1, shackle_y,
+            shackle_x2, shackle_y2 - shackle_thick, col);
+    boxfill(shackle_x + shackle_thick, shackle_y2 - shackle_thick + 1,
+            shackle_x2 - shackle_thick, shackle_y2, col);
+
+    /* Wnetrze kabłąka — zostawia czytelny otwor */
+    boxfill(shackle_x + shackle_thick, shackle_y + 2,
+            shackle_x2 - shackle_thick, shackle_y2 - shackle_thick, COL_BLACK);
 
     /* Trzon kłódki */
-    ui_rounded_box(bx, by + 8, bx + bw, by + 19, COL_DARK_RED, col);
+    ui_rounded_box(body_x, body_y, body_x2, body_y2, COL_DARK_RED, col);
+    draw_box(body_x + 3, body_y + 3, body_x2 - 3, body_y2 - 3, 0x660000);
 
-    /* Dziurka — kółko */
-    draw_line(bx + 5,  by + 11, bx + 9,  by + 11, col);
-    draw_line(bx + 4,  by + 12, bx + 10, by + 12, col);
-    draw_line(bx + 4,  by + 13, bx + 10, by + 13, col);
-    draw_line(bx + 5,  by + 14, bx + 9,  by + 14, col);
-    /* Dziurka — trzonek */
-    draw_line(bx + 6,  by + 14, bx + 8,  by + 17, col);
+    /* Dziurka */
+    const int key_x = NX / 2;
+    const int key_y = body_y2 - 12;
+    boxfill(key_x - 5, key_y - 2, key_x + 5, key_y + 4, COL_BLACK);
+    draw_line(key_x - 4, key_y - 3, key_x + 4, key_y - 3, col);
+    draw_line(key_x - 6, key_y - 1, key_x - 6, key_y + 3, col);
+    draw_line(key_x + 6, key_y - 1, key_x + 6, key_y + 3, col);
+    draw_line(key_x - 4, key_y + 5, key_x + 4, key_y + 5, col);
+    boxfill(key_x - 2, key_y - 14, key_x + 2, key_y - 3, COL_BLACK);
+    draw_line(key_x - 3, key_y - 13, key_x - 3, key_y - 4, col);
+    draw_line(key_x + 3, key_y - 13, key_x + 3, key_y - 4, col);
+    draw_line(key_x - 3, key_y - 14, key_x + 3, key_y - 14, col);
 
-    /* Napis LOCK — dół ekranu, czcionka 20px, wycentrowany
-     * Szerokosc: L=13 O=16 C=15 K=16 = 60px → x=(160-60)/2=50 */
-    ui_rounded_box(44, 105, 116, 127, COL_DARK_RED, col);
-    disp_str20("LOCK", 50, 107, col);
+    /* Napis LOCK — sam dol ekranu, czcionka 20px, wycentrowany.
+     * Szerokosc: L=13 O=16 C=15 K=16 = 60px. */
+    const int lock_text_w = 60;
+    const int lock_box_w = 72;
+    const int lock_box_h = 22;
+    const int lock_box_x = (NX - lock_box_w) / 2;
+    const int lock_box_y = 0;
+    ui_rounded_box(lock_box_x, lock_box_y,
+                   lock_box_x + lock_box_w, lock_box_y + lock_box_h,
+                   COL_DARK_RED, col);
+    disp_str20("LOCK", (NX - lock_text_w) / 2, lock_box_y + 2, col);
 }
 
 /* -------------------------------------------------------------------------
@@ -149,7 +174,7 @@ static void draw_check_icon(int x, int y, uint32_t col)
 /* =========================================================================
  *  ui_draw_save_prompt — overlay "SAVE TO Mn?"
  *
- *  Overlay zajmuje dolna czesc ekranu (y=72..118)
+ *  Overlay zajmuje srodkowa czesc ekranu (y=42..88)
  *  Layout:
  *    [ikona dyskietki]  SAVE TO M3?
  *    [BTN_MEM=YES]      [BTN_SAVE=NO]
@@ -159,25 +184,28 @@ void ui_draw_save_prompt(int mem_idx)
     char str[32];
 
     /* Tlo overlaya */
-    ui_rounded_box(12, 72, 148, 118, COL_DARK_AMBER, COL_AMBER);
+    ui_rounded_box(12, 72 + UI_MSG_Y_SHIFT,
+                   148, 118 + UI_MSG_Y_SHIFT, COL_DARK_AMBER, COL_AMBER);
 
     /* Ikona dyskietki */
-    draw_floppy_icon(20, 78, COL_AMBER);
+    draw_floppy_icon(20, 78 + UI_MSG_Y_SHIFT, COL_AMBER);
 
     /* Tekst pytania */
     snprintf(str, sizeof(str), "SAVE TO M%d?", mem_idx);
-    disp_str12(str, 42, 78, COL_YELLOW);
+    disp_str12(str, 42, 78 + UI_MSG_Y_SHIFT, COL_YELLOW);
 
     /* Linia separatora */
-    draw_line(14, 97, 146, 97, COL_AMBER);
+    draw_line(14, 97 + UI_MSG_Y_SHIFT, 146, 97 + UI_MSG_Y_SHIFT, COL_AMBER);
 
     /* Przycisk YES (BTN_MEM — lewy) */
-    ui_rounded_box(18, 101, 72, 115, 0x003300, COL_GREEN);
-    disp_str8("YES(MEM)", 22, 104, COL_BRIGHT_GRN);
+    ui_rounded_box(18, 101 + UI_MSG_Y_SHIFT,
+                   72, 115 + UI_MSG_Y_SHIFT, 0x003300, COL_GREEN);
+    disp_str8("YES(MEM)", 22, 104 + UI_MSG_Y_SHIFT, COL_BRIGHT_GRN);
 
     /* Przycisk NO (BTN_SAVE — prawy) */
-    ui_rounded_box(88, 101, 142, 115, COL_DARK_RED, COL_RED);
-    disp_str8("NO(SAVE)", 92, 104, COL_RED);
+    ui_rounded_box(88, 101 + UI_MSG_Y_SHIFT,
+                   142, 115 + UI_MSG_Y_SHIFT, COL_DARK_RED, COL_RED);
+    disp_str8("NO(SAVE)", 92, 104 + UI_MSG_Y_SHIFT, COL_RED);
 }
 
 /* =========================================================================
@@ -187,23 +215,24 @@ void ui_draw_saved_confirm(int mem_idx, uint32_t freq_hz)
 {
     char str[32];
 
-    ui_rounded_box(12, 72, 148, 118, COL_DARK_GREEN, COL_GREEN);
+    ui_rounded_box(12, 72 + UI_MSG_Y_SHIFT,
+                   148, 118 + UI_MSG_Y_SHIFT, COL_DARK_GREEN, COL_GREEN);
 
     /* Ikona check */
-    draw_check_icon(18, 80, COL_GREEN);
+    draw_check_icon(18, 80 + UI_MSG_Y_SHIFT, COL_GREEN);
 
     /* Napis SAVED */
-    disp_str16("SAVED", 40, 76, COL_BRIGHT_GRN);
+    disp_str16("SAVED", 40, 76 + UI_MSG_Y_SHIFT, COL_BRIGHT_GRN);
 
     /* Linia */
-    draw_line(14, 97, 146, 97, COL_GREEN);
+    draw_line(14, 97 + UI_MSG_Y_SHIFT, 146, 97 + UI_MSG_Y_SHIFT, COL_GREEN);
 
     /* Czestotliwosc */
     snprintf(str, sizeof(str), "M%d = %lu.%03lu MHz",
              mem_idx,
              (unsigned long)(freq_hz / 1000000UL),
              (unsigned long)((freq_hz / 1000UL) % 1000UL));
-    disp_str8(str, 16, 101, COL_BRIGHT_GRN);
+    disp_str8(str, 16, 101 + UI_MSG_Y_SHIFT, COL_BRIGHT_GRN);
 }
 
 /* =========================================================================
@@ -213,23 +242,24 @@ void ui_draw_loaded_confirm(int mem_idx, uint32_t freq_hz)
 {
     char str[32];
 
-    ui_rounded_box(12, 72, 148, 118, COL_DARK_BLUE, 0x4488ff);
+    ui_rounded_box(12, 72 + UI_MSG_Y_SHIFT,
+                   148, 118 + UI_MSG_Y_SHIFT, COL_DARK_BLUE, 0x4488ff);
 
     /* Strzalka wczytania (prosta grafika) */
-    draw_line(18, 93, 30, 93, COL_CYAN);
-    draw_line(18, 93, 22, 89, COL_CYAN);
-    draw_line(18, 93, 22, 97, COL_CYAN);
+    draw_line(18, 93 + UI_MSG_Y_SHIFT, 30, 93 + UI_MSG_Y_SHIFT, COL_CYAN);
+    draw_line(18, 93 + UI_MSG_Y_SHIFT, 22, 89 + UI_MSG_Y_SHIFT, COL_CYAN);
+    draw_line(18, 93 + UI_MSG_Y_SHIFT, 22, 97 + UI_MSG_Y_SHIFT, COL_CYAN);
 
     /* Napis LOADED */
-    disp_str16("LOAD", 40, 76, COL_CYAN);
+    disp_str16("LOAD", 40, 76 + UI_MSG_Y_SHIFT, COL_CYAN);
 
-    draw_line(14, 97, 146, 97, 0x4488ff);
+    draw_line(14, 97 + UI_MSG_Y_SHIFT, 146, 97 + UI_MSG_Y_SHIFT, 0x4488ff);
 
     snprintf(str, sizeof(str), "M%d = %lu.%03lu MHz",
              mem_idx,
              (unsigned long)(freq_hz / 1000000UL),
              (unsigned long)((freq_hz / 1000UL) % 1000UL));
-    disp_str8(str, 16, 101, COL_CYAN);
+    disp_str8(str, 16, 101 + UI_MSG_Y_SHIFT, COL_CYAN);
 }
 
 /* =========================================================================
