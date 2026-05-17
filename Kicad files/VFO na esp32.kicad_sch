@@ -8937,7 +8937,7 @@
 		(in_bom yes)
 		(on_board yes)
 		(in_pos_files yes)
-		(dnp no)
+		(dnp yes)
 		(uuid "2111185f-e627-493a-a52e-10a6700fffe3")
 		(property "Reference" "R3"
 			(at 190.246 110.236 0)
