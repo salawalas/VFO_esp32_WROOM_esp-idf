@@ -4,7 +4,7 @@ import datetime
 
 Import("env")
 
-version = os.environ.get("VERSION", "2.1")
+version = os.environ.get("VERSION", "2.2.0")
 
 try:
     git_commit = subprocess.check_output(
