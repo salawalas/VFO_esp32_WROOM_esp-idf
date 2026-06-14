@@ -214,8 +214,8 @@ void encoder_task(void *arg)
                     g_vfo.f_disp_changed = true;
 
                 } else if (cur_mode == DISP_MODE_XTAL_CAL) {
-                    /* Kalibracja kwarcu — krok 1 Hz (x10 przy szybkim obrocie) */
-                    int32_t step    = (abs_det >= 5) ? 10 : 1;
+                    /* Kalibracja kwarcu — krok 10 Hz (x10 przy szybkim obrocie) */
+                    int32_t step    = (abs_det >= 5) ? 100 : 10;
                     int32_t new_cal = g_vfo.xtal_cal + (int32_t)detents * step;
                     if (new_cal >  XTAL_CAL_MAX) new_cal =  XTAL_CAL_MAX;
                     if (new_cal <  XTAL_CAL_MIN) new_cal =  XTAL_CAL_MIN;

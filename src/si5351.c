@@ -2,9 +2,9 @@
  *  si5351.c — Sterownik Si5351A  (ESP-IDF 5.x)
  *
  *  Wyjscia:
- *    CLK0 (reg 16) — nosna glowna I,   PLL_A, MS0, faza 0°,  8 mA
- *    CLK1 (reg 17) — LO (VFO),         PLL_B, MS1, strojone enkoderem
- *    CLK2 (reg 18) — nosna Q,          PLL_A, MS2, INV=90°,  8 mA
+ *    CLK0 (reg 16) — LO (VFO),         PLL_A, MS0, strojone enkoderem
+ *    CLK1 (reg 17) — nosna glowna I,   PLL_B, MS1, faza 0°,  8 mA
+ *    CLK2 (reg 18) — nosna Q,          PLL_B, MS2, INV=90°,  8 mA
  *
  *  Rejestr 3 (Output Enable Control):
  *    bit0=CLK0  bit1=CLK1  bit2=CLK2   1=wyciszony 0=aktywny
@@ -215,59 +215,60 @@ esp_err_t si5351_init(void)
     reg_write(177, 0xA0);   /* Reset PLL_A i PLL_B */
 
     /*
-     *  CLK0 — nosna glowna I:
+     *  CLK0 — LO (VFO):
      *    MS0, src=PLL_A, nie inwertowany, 8 mA, integer mode
-     *    reg16 = 0x4F  [7=0:on, 6=1:integer, 5-4=00:src=PLL_A, 3=0:no inv, 2-0=111:8mA]
+     *    reg16 = 0x4F  [7=0:on, 6=1:integer, 5=0:src=PLL_A, 3=0:no inv, 2-0=111:8mA]
      *
-     *  CLK1 — LO (VFO):
+     *  CLK1 — nosna glowna I:
      *    MS1, src=PLL_B, nie inwertowany, 8 mA, integer mode
-     *    reg17 = 0x6F  [7=0:on, 6=1:integer, 5-4=10:src=PLL_B, 3=0:no inv, 2-0=111:8mA]
+     *    reg17 = 0x6F  [7=0:on, 6=1:integer, 5=1:src=PLL_B, 3=0:no inv, 2-0=111:8mA]
      *
      *  CLK2 — nosna Q (90 stopni):
-     *    MS2, src=PLL_A, INVERTOWANY (daje przesunięcie 90° przy tym samym MS co CLK0)
-     *    reg18 = 0x5F  [7=0:on, 6=1:integer, 5-4=01:src=PLL_A, 3=1:INV, 2-0=111:8mA]
+     *    MS2, src=PLL_B, INVERTOWANY (daje przesunięcie 90° przy tym samym MS co CLK1)
+     *    reg18 = 0x7F  [7=0:on, 6=1:integer, 5=1:src=PLL_B,  3=1:INV, 2-0=111:8mA]
      *
      *  Uwaga: wyjscia sa wyciszone (reg3=0xFF) az do pierwszego set_freq/set_car_freq
      */
     reg_write(16, 0x4F);   /* CLK0: MS0, PLL_A, 0°,  8mA */
     reg_write(17, 0x6F);   /* CLK1: MS1, PLL_B, 0°,  8mA */
-    reg_write(18, 0x5F);   /* CLK2: MS2, PLL_A, 90°, 8mA */
+    reg_write(18, 0x7F);   /* CLK2: MS2, PLL_B, 90°, 8mA */
 
     xSemaphoreGive(s_mtx);
 
     ESP_LOGI(TAG_SI5351,
              "OK — I2C %d kHz | XTAL %lu Hz | "
-             "CLK0=nosna_I(PLL_A) CLK1=LO(PLL_B) CLK2=nosna_Q(PLL_A,90deg)",
+             "CLK0=LO(PLL_A) CLK1=nosna_I(PLL_B) CLK2=nosna_Q(PLL_B,90deg)",
              SI5351_I2C_FREQ / 1000,
              (unsigned long)SI5351_XTAL_FREQ);
     return ESP_OK;
 }
 
 /* =========================================================================
- *  si5351_set_freq — CLK1 (LO/VFO), PLL_B
+ *  si5351_set_freq — CLK0 (LO/VFO), PLL_A
  * ====================================================================== */
 void si5351_set_freq(uint32_t freq_hz)
 {
     if (freq_hz < VFO_FREQ_MIN) freq_hz = VFO_FREQ_MIN;
     if (freq_hz > VFO_FREQ_MAX) freq_hz = VFO_FREQ_MAX;
 
+    /* Aplikuj kalibracje XTAL jako korekte ppm do czestotliwosci zadanej.
+     * Kalibracja przesuwa fout proporcjonalnie (staly ppm niezaleznie od f). */
+    int64_t tmp = (int64_t)freq_hz;
+    tmp += tmp * s_xtal_cal / (int64_t)SI5351_XTAL_FREQ;
+    if (tmp < (int64_t)VFO_FREQ_MIN) tmp = VFO_FREQ_MIN;
+    if (tmp > (int64_t)VFO_FREQ_MAX) tmp = VFO_FREQ_MAX;
+    uint32_t fcal = (uint32_t)tmp;
+
+    /* Oszacuj MS_a przez FVCO_NOMINAL, oblicz rzeczywiste fVCO,
+     * a nastepnie przelicz MS dla tego samego fVCO — PLL i MS sa spojne. */
     uint32_t P1, P2, P3, R, MS_a;
-    calc_ms(FVCO_NOMINAL, freq_hz, &P1, &P2, &P3, &R, &MS_a);
+    calc_ms(FVCO_NOMINAL, fcal, &P1, &P2, &P3, &R, &MS_a);
 
-    /* Tryb ulamkowy MS — pozwala kalibracji XTAL faktycznie wplywac na
-     * czestotliwosc wyjsciowa. W trybie integer P2=0 wiec PLL musi
-     * trafic dokladnie w freq*MS_a co "pochlania" korekte kwarcu.
-     * Zostawiamy P1/P2/P3 z calc_ms (ulamkowe) dla poprawnej syntezy. */
-
-    /* Efektywna czestotliwosc kwarcu z kalibracja */
-    uint32_t xtal = (uint32_t)((int32_t)SI5351_XTAL_FREQ + s_xtal_cal);
-
-    /* fVCO: dla ulamkowego MS uzywamy FVCO_NOMINAL jako cel —
-     * PLL bedzie skalibrowany kwarcem, MS bedzie dokladny */
-    uint32_t fvco = (uint32_t)((uint64_t)freq_hz * MS_a * (1u << R));
+    uint32_t fvco = (uint32_t)((uint64_t)fcal * MS_a * (1u << R));
+    calc_ms(fvco, fcal, &P1, &P2, &P3, &R, &MS_a);
 
     uint32_t pp1, pp2, pp3;
-    calc_pll(fvco, xtal, &pp1, &pp2, &pp3);
+    calc_pll(fvco, SI5351_XTAL_FREQ, &pp1, &pp2, &pp3);
 
     /* Reset PLL gdy zmienia sie dzielnik MS LUB kalibracja kwarcu */
     bool rst = (s_ms_lo != MS_a) || (s_xtal_cal_prev_lo != s_xtal_cal);
@@ -275,30 +276,30 @@ void si5351_set_freq(uint32_t freq_hz)
     s_xtal_cal_prev_lo = s_xtal_cal;
 
     xSemaphoreTake(s_mtx, portMAX_DELAY);
-    wr_pll(34, pp1, pp2, pp3);                        /* PLL_B reg 34-41 */
-    wr_ms (50, P1, P2, P3, R, (MS_a == 4) ? 1 : 0);  /* MS1   reg 50-57 */
+    wr_pll(26, pp1, pp2, pp3);                        /* PLL_A reg 26-33 */
+    wr_ms (42, P1, P2, P3, R, (MS_a == 4) ? 1 : 0);  /* MS0   reg 42-49 */
     if (rst) {
-        reg_write(177, 0x80);   /* Reset tylko PLL_B */
-        ESP_LOGD(TAG_SI5351, "PLL_B reset (MS_a zmieniło się na %lu)", (unsigned long)MS_a);
+        reg_write(177, 0x20);   /* Reset tylko PLL_A */
+        ESP_LOGD(TAG_SI5351, "PLL_A reset (MS_a zmieniło się na %lu)", (unsigned long)MS_a);
     }
-    reg_write(3, s_reg_cache[3] & ~(1u << 1));        /* Enable CLK1 */
+    reg_write(3, s_reg_cache[3] & ~(1u << 0));        /* Enable CLK0 */
     xSemaphoreGive(s_mtx);
 
-    ESP_LOGD(TAG_SI5351, "LO(CLK1) %lu Hz | fVCO %lu | MS %lu | R x%lu",
+    ESP_LOGD(TAG_SI5351, "LO(CLK0) %lu Hz | fVCO %lu | MS %lu | R x%lu",
              (unsigned long)freq_hz, (unsigned long)fvco,
              (unsigned long)MS_a,    (unsigned long)(1u << R));
 }
 
 /* =========================================================================
- *  si5351_set_car_freq — CLK0 (nosna I) + CLK2 (nosna Q 90°), PLL_A
+ *  si5351_set_car_freq — CLK1 (nosna I) + CLK2 (nosna Q 90°), PLL_B
  * ====================================================================== */
 void si5351_set_car_freq(uint32_t freq_hz, bool enable)
 {
     if (!enable) {
         xSemaphoreTake(s_mtx, portMAX_DELAY);
-        reg_write(16, 0x80);                          /* CLK0 power down */
+        reg_write(17, 0x80);                          /* CLK1 power down */
         reg_write(18, 0x80);                          /* CLK2 power down */
-        reg_write(3,  s_reg_cache[3] | 0x05);         /* Disable CLK0 + CLK2 (bity 0 i 2) */
+        reg_write(3,  s_reg_cache[3] | 0x06);         /* Disable CLK1 + CLK2 (bity 1 i 2) */
         xSemaphoreGive(s_mtx);
         return;
     }
@@ -306,8 +307,16 @@ void si5351_set_car_freq(uint32_t freq_hz, bool enable)
     if (freq_hz < 1500)       freq_hz = 1500;
     if (freq_hz > 225000000)  freq_hz = 225000000;
 
+    /* Aplikuj kalibracje XTAL jako korekte ppm do czestotliwosci nosnej */
+    int64_t tmp = (int64_t)freq_hz;
+    tmp += tmp * s_xtal_cal / (int64_t)SI5351_XTAL_FREQ;
+    if (tmp < 1500LL) tmp = 1500LL;
+    if (tmp > 225000000LL) tmp = 225000000LL;
+    uint32_t fcal = (uint32_t)tmp;
+
+    /* Oszacuj MS_a, oblicz fvco, MS w trybie integer (mniejszy jitter) */
     uint32_t P1, P2, P3, R, MS_a;
-    calc_ms(FVCO_NOMINAL, freq_hz, &P1, &P2, &P3, &R, &MS_a);
+    calc_ms(FVCO_NOMINAL, fcal, &P1, &P2, &P3, &R, &MS_a);
 
     if (MS_a != 4) {
         P1 = 128 * MS_a - 512;
@@ -315,35 +324,34 @@ void si5351_set_car_freq(uint32_t freq_hz, bool enable)
         P3 = 1;
     }
 
-    uint32_t fvco = freq_hz * MS_a * (1u << R);
+    uint32_t fvco = fcal * MS_a * (1u << R);
     uint32_t pp1, pp2, pp3;
-    uint32_t xtal = (uint32_t)((int32_t)SI5351_XTAL_FREQ + s_xtal_cal);
-    calc_pll(fvco, xtal, &pp1, &pp2, &pp3);
+    calc_pll(fvco, SI5351_XTAL_FREQ, &pp1, &pp2, &pp3);
 
     bool rst = (s_ms_car != MS_a) || (s_xtal_cal_prev_car != s_xtal_cal);
     s_ms_car = MS_a;
     s_xtal_cal_prev_car = s_xtal_cal;
 
     xSemaphoreTake(s_mtx, portMAX_DELAY);
-    wr_pll(26, pp1, pp2, pp3);                        /* PLL_A reg 26-33 */
-    wr_ms (42, P1, P2, P3, R, (MS_a == 4) ? 1 : 0);  /* MS0 (CLK0) reg 42-49 */
+    wr_pll(34, pp1, pp2, pp3);                        /* PLL_B reg 34-41 */
+    wr_ms (50, P1, P2, P3, R, (MS_a == 4) ? 1 : 0);  /* MS1 (CLK1) reg 50-57 */
     wr_ms (58, P1, P2, P3, R, (MS_a == 4) ? 1 : 0);  /* MS2 (CLK2) reg 58-65, te same param */
     if (rst) {
-        reg_write(177, 0x20);   /* Reset tylko PLL_A */
+        reg_write(177, 0x80);   /* Reset tylko PLL_B */
     }
     /* Przywroc CLK control (na wypadek gdyby byly power-down) */
-    reg_write(16, 0x4F);   /* CLK0: MS0, PLL_A, 0°  */
-    reg_write(18, 0x5F);   /* CLK2: MS2, PLL_A, 90° */
-    reg_write(3,  s_reg_cache[3] & ~0x05u);   /* Enable CLK0 + CLK2 */
+    reg_write(17, 0x6F);   /* CLK1: MS1, PLL_B, 0°  */
+    reg_write(18, 0x7F);   /* CLK2: MS2, PLL_B, 90° */
+    reg_write(3,  s_reg_cache[3] & ~0x06u);   /* Enable CLK1 + CLK2 */
     xSemaphoreGive(s_mtx);
 
-    ESP_LOGD(TAG_SI5351, "CAR(CLK0+CLK2) %lu Hz | fVCO %lu | MS %lu",
+    ESP_LOGD(TAG_SI5351, "CAR(CLK1+CLK2) %lu Hz | fVCO %lu | MS %lu",
              (unsigned long)freq_hz, (unsigned long)fvco, (unsigned long)MS_a);
 }
 
 /* =========================================================================
  *  si5351_set_xtal_cal — korekta czestotliwosci kwarcu [Hz]
- *  Zakres: XTAL_CAL_MIN..XTAL_CAL_MAX (+/-5000 Hz)
+ *  Zakres: XTAL_CAL_MIN..XTAL_CAL_MAX (+/-25000 Hz)
  *  Nowa wartosc bedzie uzyta przy nastepnym wywolaniu set_freq/set_car_freq.
  * ====================================================================== */
 void si5351_set_xtal_cal(int32_t cal)

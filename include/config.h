@@ -54,9 +54,9 @@
 /*---------------------------------------------------------------------------
  *  Si5351 CLK outputs
  *--------------------------------------------------------------------------*/
-#define SI5351_CLK_LO    1   /* CLK1 = LO (VFO, PLL_B) */
-#define SI5351_CLK_CAR_I 0   /* CLK0 = nosna glowna I (PLL_A, 0 deg) */
-#define SI5351_CLK_CAR_Q 2   /* CLK2 = nosna Q (PLL_A, 90 deg, INV) */
+#define SI5351_CLK_LO    0   /* CLK0 = LO (VFO, PLL_A) */
+#define SI5351_CLK_CAR_I 1   /* CLK1 = nosna glowna I (PLL_B, 0 deg) */
+#define SI5351_CLK_CAR_Q 2   /* CLK2 = nosna Q (PLL_B, 90 deg, INV) */
 
 /*---------------------------------------------------------------------------
  *  Kroki czestotliwosci — makra zamiast tablic (zero problemow z ODR)
@@ -196,8 +196,8 @@ static const band_entry_t VFO_BANDS[BAND_COUNT] = {
 /*---------------------------------------------------------------------------
  *  Nowe stale funkcji
  *--------------------------------------------------------------------------*/
-#define XTAL_CAL_MAX        5000
-#define XTAL_CAL_MIN       -5000
+#define XTAL_CAL_MAX        25000
+#define XTAL_CAL_MIN       -25000
 #define RIT_MAX_HZ          9999
 #define RIT_MIN_HZ         -9999
 #define SCAN_STEP_MS         300

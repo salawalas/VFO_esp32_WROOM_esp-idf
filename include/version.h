@@ -3,6 +3,6 @@
 
 #define FW_NAME    "ESP32 VFO"
 #define FW_AUTHOR  "Marcin"
-#define FW_VERSION "2.1"
-#define FW_COMMIT  "b532da3"
-#define BUILD_DATE "2026-05-17 12:16"
+#define FW_VERSION "2.2.0"
+#define FW_COMMIT  "cc726ab"
+#define BUILD_DATE "2026-06-14 00:20"
