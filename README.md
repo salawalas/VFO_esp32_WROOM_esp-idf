@@ -9,8 +9,8 @@ Repozytorium zawiera firmware ESP-IDF/PlatformIO oraz projekt PCB i schemat w Ki
 - Zakres VFO: `100 kHz .. 225 MHz`.
 - Syntezer Si5351A sterowany przez I2C 400 kHz.
 - Wyjscia Si5351:
-  - `CLK1` - glowny sygnal LO/VFO,
-  - `CLK0` - nosna I,
+  - `CLK0` - glowny sygnal LO/VFO,
+  - `CLK1` - nosna I,
   - `CLK2` - nosna Q, przesunieta wzgledem I.
 - Kolorowy wyswietlacz ST7735 1.8", framebuffer `160 x 128 px`.
 - Analogowa tarcza VFO oraz cyfrowy odczyt czestotliwosci.
