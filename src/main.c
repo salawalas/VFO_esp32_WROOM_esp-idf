@@ -1,5 +1,5 @@
 /*===========================================================================
- *  main.c — VFO Controller (ESP-IDF 5.x / PlatformIO)
+ *  main.c — VFO Controller (ESP-IDF 6.x / PlatformIO)
  *===========================================================================*/
 #include <stdio.h>
 #include <string.h>
